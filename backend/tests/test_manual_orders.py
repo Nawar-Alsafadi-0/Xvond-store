@@ -1,3 +1,5 @@
+# ruff: noqa: I001
+
 import pytest
 
 from app.api.manual_orders import ManualCheckoutCreate
