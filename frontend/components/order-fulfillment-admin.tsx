@@ -112,7 +112,11 @@ export function OrderFulfillmentAdmin({ locale }: { locale: Locale }) {
     setOrders(await response.json() as Order[]);
   }, [ar]);
 
-  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+    const timer = window.setInterval(() => void load(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   const counts = useMemo(() => {
     const result: Record<string, number> = { all: orders.length, active: 0 };
@@ -192,8 +196,12 @@ export function OrderFulfillmentAdmin({ locale }: { locale: Locale }) {
       <div>
         <h1>{ar ? "إدارة الطلبات والتوصيل" : "Orders & delivery"}</h1>
         <p>{ar ? `${counts.pending || 0} طلب جديد يحتاج مراجعة` : `${counts.pending || 0} new orders need attention`}</p>
+        <small>{ar ? "القائمة تتحدث تلقائياً كل 30 ثانية." : "Orders refresh automatically every 30 seconds."}</small>
       </div>
-      <Link href={`/${locale}/admin`}>← {ar ? "لوحة الإدارة" : "Admin dashboard"}</Link>
+      <div style={{ display: "flex", gap: ".75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <button className="secondary-button" type="button" onClick={() => void load()}>{ar ? "تحديث الآن" : "Refresh now"}</button>
+        <Link href={`/${locale}/admin`}>← {ar ? "لوحة الإدارة" : "Admin dashboard"}</Link>
+      </div>
     </div>
 
     <div style={{ display: "grid", gap: ".8rem", margin: "1.25rem 0" }}>
