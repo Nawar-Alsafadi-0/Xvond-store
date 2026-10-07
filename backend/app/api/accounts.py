@@ -217,7 +217,9 @@ async def me(customer: CurrentCustomer) -> ProfileRead:
 
 
 @router.get("/account/addresses")
-async def addresses(customer: CurrentCustomer, session: Session) -> list[dict[str, str | None]]:
+async def addresses(
+    customer: CurrentCustomer, session: Session
+) -> list[dict[str, str | float | None]]:
     result = await session.scalars(
         select(Address)
         .where(Address.customer_id == customer.id)
@@ -231,6 +233,8 @@ async def addresses(customer: CurrentCustomer, session: Session) -> list[dict[st
             "city": item.city,
             "address_line": item.address_line,
             "postal_code": item.postal_code,
+            "latitude": item.latitude,
+            "longitude": item.longitude,
         }
         for item in result
     ]
@@ -275,6 +279,29 @@ async def customer_orders(customer: CurrentCustomer, session: Session) -> list[d
         }
         for item in result
     ]
+
+
+@router.get("/account/orders/{order_number}/track")
+async def customer_order_tracking(
+    order_number: str, customer: CurrentCustomer, session: Session
+) -> dict[str, object]:
+    order = await session.scalar(
+        select(Order).where(
+            Order.order_number == order_number.upper(),
+            Order.customer_id == customer.id,
+        )
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {
+        "order_number": order.order_number,
+        "status": order.status,
+        "payment_status": order.payment_status,
+        "payment_method": order.payment_method,
+        "grand_total": str(order.grand_total),
+        "currency": order.currency,
+        "created_at": order.created_at,
+    }
 
 
 @router.get("/account/wishlist")
