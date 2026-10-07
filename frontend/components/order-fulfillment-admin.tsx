@@ -40,8 +40,20 @@ type OrderItem = {
 
 type OrderDetail = Order & { items: OrderItem[] };
 
+type ParsedAddress = { address: string | null; mapUrl: string | null };
+
 const orderStates = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"];
 const paymentStates = ["pending", "authorized", "paid", "failed", "refunded"];
+
+function parseAddress(value: string | null): ParsedAddress {
+  if (!value) return { address: null, mapUrl: null };
+  const match = value.match(/^(.*?)\s*\|\s*GPS\s*(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/i);
+  if (!match) return { address: value, mapUrl: null };
+  return {
+    address: match[1].trim(),
+    mapUrl: `https://www.google.com/maps?q=${encodeURIComponent(`${match[2]},${match[3]}`)}`,
+  };
+}
 
 export function OrderFulfillmentAdmin({ locale }: { locale: Locale }) {
   const ar = locale === "ar";
@@ -112,17 +124,19 @@ export function OrderFulfillmentAdmin({ locale }: { locale: Locale }) {
       {orders.length ? orders.map((order) => {
         const detail = details[order.id];
         const expanded = expandedId === order.id;
+        const location = parseAddress(order.shipping_address_line);
         return <article key={order.id} style={{ alignItems: "stretch", gap: "1rem" }}>
           <div style={{ display: "grid", gap: ".35rem" }}>
             <strong>{order.order_number}</strong>
             <small>{new Date(order.created_at).toLocaleString(ar ? "ar-OM" : "en-OM")}</small>
             <span>{order.customer_name || "—"}</span>
             <small>{order.customer_email || "—"}{order.customer_phone ? ` · ${order.customer_phone}` : ""}</small>
-            <small>{[order.shipping_governorate, order.shipping_city, order.shipping_address_line].filter(Boolean).join(" · ") || (ar ? "طلب قديم بدون لقطة عنوان" : "Legacy order without address snapshot")}</small>
+            <small>{[order.shipping_governorate, order.shipping_city, location.address].filter(Boolean).join(" · ") || (ar ? "طلب قديم بدون عنوان" : "Legacy order without address")}</small>
+            {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noreferrer" className="table-button" style={{ width: "fit-content" }}>{ar ? "فتح موقع التوصيل" : "Open delivery location"}</a>}
           </div>
           <div style={{ display: "grid", gap: ".35rem" }}>
             <strong>{order.grand_total} {order.currency}</strong>
-            <small>{ar ? "الشحن" : "Shipping"}: {order.shipping_total} {order.currency}{order.discount_total !== "0.000" ? ` · ${ar ? "خصم" : "Discount"}: ${order.discount_total}` : ""}</small>
+            <small>{ar ? "التوصيل" : "Shipping"}: {order.shipping_total} {order.currency}{order.discount_total !== "0.000" ? ` · ${ar ? "خصم" : "Discount"}: ${order.discount_total}` : ""}</small>
             <small>{ar ? "طريقة الدفع" : "Payment method"}: {order.payment_method === "cash_on_delivery" ? (ar ? "الدفع عند الاستلام" : "Cash on delivery") : order.payment_method === "tap" ? "Tap" : order.payment_method}</small>
             <select value={order.status} disabled={busyId === order.id} onChange={(event) => void update(order.id, { status: event.target.value })}>
               {orderStates.map((state) => <option key={state} value={state}>{state}</option>)}
@@ -135,6 +149,7 @@ export function OrderFulfillmentAdmin({ locale }: { locale: Locale }) {
           {expanded && detail && <div style={{ gridColumn: "1 / -1", display: "grid", gap: ".75rem", borderTop: "1px solid var(--line, #d9d9d9)", paddingTop: "1rem" }}>
             <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
               <small>{ar ? "المجموع الفرعي" : "Subtotal"}: {detail.subtotal} {detail.currency}</small>
+              <small>{ar ? "التوصيل" : "Shipping"}: {detail.shipping_total} {detail.currency}</small>
               {detail.discount_total !== "0.000" && <small>{ar ? "الخصم" : "Discount"}: {detail.discount_total} {detail.currency}</small>}
               {detail.promotion_code && <small>{ar ? "العرض" : "Promotion"}: {detail.promotion_code}</small>}
             </div>
