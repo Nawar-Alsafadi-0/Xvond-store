@@ -1,0 +1,177 @@
+.page {
+  padding-bottom: 4rem;
+}
+
+.backRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+  gap: clamp(1.5rem, 4vw, 4.5rem);
+  align-items: start;
+}
+
+.media {
+  position: sticky;
+  top: 1.25rem;
+}
+
+.imageWrap {
+  position: relative;
+  overflow: hidden;
+  min-height: min(72vh, 760px);
+  border-radius: 28px;
+  background: rgba(127, 127, 127, .08);
+  border: 1px solid rgba(127, 127, 127, .18);
+}
+
+.imageWrap img {
+  object-fit: cover;
+}
+
+.info {
+  display: grid;
+  gap: 1.25rem;
+  padding-block: .5rem;
+}
+
+.title {
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1.02;
+  margin: 0;
+}
+
+.price {
+  display: flex;
+  align-items: baseline;
+  gap: .8rem;
+  flex-wrap: wrap;
+}
+
+.price strong {
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+}
+
+.price del {
+  opacity: .55;
+}
+
+.discount {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: .35rem .7rem;
+  background: rgba(58, 167, 109, .12);
+  font-weight: 700;
+}
+
+.description {
+  font-size: 1.03rem;
+  line-height: 1.8;
+  opacity: .82;
+  white-space: pre-line;
+}
+
+.stock {
+  display: flex;
+  gap: .55rem;
+  align-items: center;
+  width: fit-content;
+  font-weight: 700;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.buyBox {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(127, 127, 127, .2);
+  border-radius: 22px;
+  padding: 1.1rem;
+  background: rgba(127, 127, 127, .045);
+}
+
+.promises {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+}
+
+.promise {
+  padding: .9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(127, 127, 127, .16);
+  display: grid;
+  gap: .25rem;
+}
+
+.promise strong {
+  font-size: .9rem;
+}
+
+.promise span {
+  font-size: .78rem;
+  opacity: .68;
+  line-height: 1.4;
+}
+
+.note {
+  margin: 0;
+  font-size: .86rem;
+  opacity: .65;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 1.4rem;
+  }
+
+  .media {
+    position: static;
+  }
+
+  .imageWrap {
+    min-height: min(68vh, 620px);
+    border-radius: 20px;
+  }
+
+  .title {
+    font-size: clamp(2rem, 9vw, 3.25rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    padding-bottom: 6rem;
+  }
+
+  .backRow {
+    margin-bottom: .75rem;
+  }
+
+  .imageWrap {
+    min-height: 58vh;
+  }
+
+  .promises {
+    grid-template-columns: 1fr;
+  }
+
+  .buyBox {
+    padding: .9rem;
+    border-radius: 18px;
+  }
+}
