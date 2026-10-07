@@ -1,71 +1,112 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { ArchiveBoxIcon, ArrowPathIcon, ArrowUturnLeftIcon, ChartBarIcon, CubeIcon, FolderIcon, GiftIcon, ReceiptPercentIcon, ShoppingBagIcon, TagIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import { StoreLogo } from "./store-logo";
 import type { Locale } from "@/lib/i18n";
+import { StoreLogo } from "./store-logo";
 
-type Section = "overview" | "products" | "categories" | "inventory" | "orders" | "returns" | "customers" | "coupons" | "discounts" | "settings";
-type Data = Record<string, unknown>;
-type Category = { id: string; slug: string; name_ar: string; name_en: string };
-type Product = { id: string; sku: string; name_ar: string; name_en: string; variants: { sku: string; price: string; stock_quantity: number }[] };
-type Mutate = (path: string, method: string, body?: unknown) => Promise<void>;
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-const navigation: { id: Section; ar: string; en: string; icon: typeof CubeIcon }[] = [
-  { id: "overview", ar: "نظرة عامة", en: "Overview", icon: ChartBarIcon }, { id: "products", ar: "المنتجات", en: "Products", icon: CubeIcon },
-  { id: "categories", ar: "الفئات", en: "Categories", icon: FolderIcon }, { id: "inventory", ar: "المخزون", en: "Inventory", icon: ArchiveBoxIcon },
-  { id: "orders", ar: "الطلبات", en: "Orders", icon: ShoppingBagIcon }, { id: "customers", ar: "العملاء", en: "Customers", icon: UserGroupIcon },
-  { id: "returns", ar: "الاسترجاع", en: "Returns", icon: ArrowUturnLeftIcon },
-  { id: "coupons", ar: "الكوبونات", en: "Coupons", icon: TagIcon }, { id: "discounts", ar: "الخصومات", en: "Discounts", icon: ReceiptPercentIcon },
-  { id: "settings", ar: "الإعدادات", en: "Settings", icon: GiftIcon }
-];
+type Overview = {
+  products: number;
+  orders: number;
+  customers: number;
+  low_stock: number;
+  pending_orders: number;
+  paid_revenue: string;
+  returns: number;
+};
 
 export function AdminControlCenter({ locale }: { locale: Locale }) {
-  const ar = locale === "ar"; const [authenticated, setAuthenticated] = useState(false); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
-  const [section, setSection] = useState<Section>("overview"); const [data, setData] = useState<unknown>(null); const [categories, setCategories] = useState<Category[]>([]);
-  const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [showForm, setShowForm] = useState(false);
-  useEffect(() => { void fetch(`${apiUrl}/auth/admin/me`, { credentials: "include" }).then((response) => { if (response.ok) setAuthenticated(true); }); }, []);
-  const request = useCallback(async (path: string, options?: RequestInit) => { const response = await fetch(`${apiUrl}/admin${path}`, { ...options, credentials: "include", headers: { "Content-Type": "application/json", ...(options?.headers || {}) } }); if (response.status === 401) { setAuthenticated(false); throw new Error("unauthorized"); } if (!response.ok) throw new Error(await response.text()); return response.status === 204 ? null : response.json(); }, []);
-  const load = useCallback(async () => { if (!authenticated) return; setBusy(true); setMessage(""); try { const endpoint = section === "inventory" ? "/products" : `/${section}`; const result = await request(endpoint); setData(result); if (["products", "categories"].includes(section)) setCategories(section === "categories" ? result as Category[] : await request("/categories") as Category[]); } catch (error) { if ((error as Error).message !== "unauthorized") setMessage(ar ? "تعذر تحميل البيانات." : "Could not load data."); } finally { setBusy(false); } }, [authenticated, section, request, ar]);
-  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
-  async function mutate(path: string, method: string, body?: unknown) { setBusy(true); setMessage(""); try { await request(path, { method, body: body ? JSON.stringify(body) : undefined }); setMessage(ar ? "تم الحفظ بنجاح." : "Saved successfully."); setShowForm(false); await load(); } catch { setMessage(ar ? "لم يتم الحفظ. راجع البيانات." : "Could not save. Check the data."); } finally { setBusy(false); } }
-  async function login(event: FormEvent) { event.preventDefault(); setMessage(""); const response = await fetch(`${apiUrl}/auth/admin/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) }); if (response.ok) setAuthenticated(true); else setMessage(ar ? "بيانات الدخول غير صحيحة." : "Invalid sign-in details."); }
-  async function logout() { await fetch(`${apiUrl}/auth/logout`, { method: "POST", credentials: "include" }); setAuthenticated(false); }
-  function setToken(value: string) { if (!value) void logout(); }
+  const ar = locale === "ar";
+  const [authenticated, setAuthenticated] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [message, setMessage] = useState("");
 
-  if (!authenticated) return <main className="admin-login"><form onSubmit={(event) => void login(event)}><StoreLogo size={64} /><p>XVOND SMART STORE ADMIN</p><h1>{ar ? "دخول الإدارة" : "Admin access"}</h1><label>{ar ? "البريد الإلكتروني" : "Email"}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>{ar ? "كلمة المرور" : "Password"}<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={12} /></label>{message && <small>{message}</small>}<button className="primary-button">{ar ? "دخول" : "Sign in"}</button></form></main>;
-  const active = navigation.find((item) => item.id === section)!;
-  return <main className="admin-shell"><aside className="admin-sidebar"><div className="admin-brand"><StoreLogo size={64} /><div><strong>Xvond Smart Store</strong><small>CONTROL CENTER</small></div></div><nav>{navigation.map((item) => <button key={item.id} className={section === item.id ? "active" : ""} onClick={() => { setSection(item.id); setShowForm(false); }}><item.icon />{ar ? item.ar : item.en}</button>)}</nav><button className="admin-exit" onClick={() => setToken("")}>{ar ? "خروج" : "Sign out"}</button></aside><section className="admin-workspace"><header className="admin-topbar"><div><p>XVOND SMART STORE</p><h1>{ar ? active.ar : active.en}</h1></div><div><button className="icon-button" onClick={() => void load()}><ArrowPathIcon /></button>{["products", "categories", "coupons", "discounts"].includes(section) && <button className="primary-button" onClick={() => setShowForm(!showForm)}>{showForm ? (ar ? "إغلاق" : "Close") : (ar ? "+ إضافة" : "+ Add")}</button>}</div></header>{message && <div className="admin-message">{message}</div>}{busy && <div className="admin-loading">{ar ? "جارٍ التحميل…" : "Loading…"}</div>}{!busy && <AdminSection section={section} data={data} categories={categories} showForm={showForm} ar={ar} mutate={mutate} />}</section></main>;
+  const loadOverview = useCallback(async () => {
+    const response = await fetch(`${apiUrl}/admin/overview`, { credentials: "include", cache: "no-store" });
+    if (!response.ok) throw new Error("overview");
+    setOverview(await response.json() as Overview);
+  }, []);
+
+  useEffect(() => {
+    void fetch(`${apiUrl}/auth/admin/me`, { credentials: "include", cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        setAuthenticated(true);
+        await loadOverview();
+      })
+      .catch(() => setAuthenticated(false))
+      .finally(() => setChecking(false));
+  }, [loadOverview]);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const response = await fetch(`${apiUrl}/auth/admin/login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!response.ok) {
+      setMessage(ar ? "بيانات الدخول غير صحيحة." : "Invalid sign-in details.");
+      return;
+    }
+    setAuthenticated(true);
+    await loadOverview();
+  }
+
+  async function logout() {
+    await fetch(`${apiUrl}/auth/logout`, { method: "POST", credentials: "include" });
+    setAuthenticated(false);
+    setOverview(null);
+  }
+
+  if (checking) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
+
+  if (!authenticated) {
+    return <main className="admin-login"><form onSubmit={(event) => void login(event)}>
+      <StoreLogo size={64} />
+      <p>XVOND STORE ADMIN</p>
+      <h1>{ar ? "دخول الإدارة" : "Admin access"}</h1>
+      <label>{ar ? "البريد الإلكتروني" : "Email"}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+      <label>{ar ? "كلمة المرور" : "Password"}<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={12} /></label>
+      {message && <small>{message}</small>}
+      <button className="primary-button">{ar ? "دخول" : "Sign in"}</button>
+    </form></main>;
+  }
+
+  const cards = [
+    [ar ? "طلبات جديدة" : "New orders", overview?.pending_orders ?? 0],
+    [ar ? "المنتجات" : "Products", overview?.products ?? 0],
+    [ar ? "مخزون منخفض" : "Low stock", overview?.low_stock ?? 0],
+    [ar ? "الطلبات" : "Orders", overview?.orders ?? 0],
+    [ar ? "العملاء" : "Customers", overview?.customers ?? 0],
+    [ar ? "المبيعات المحصلة" : "Collected sales", `${overview?.paid_revenue ?? "0"} OMR`],
+  ];
+
+  return <main className="content-page shell commerce-page">
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+      <div><p className="eyebrow">XVOND STORE ADMIN</p><h1>{ar ? "لوحة التحكم" : "Control center"}</h1><p>{ar ? "كل ما تحتاجه لتشغيل المتجر من مكان واحد." : "Run the store from one simple control center."}</p></div>
+      <button className="secondary-button" onClick={() => void logout()}>{ar ? "تسجيل الخروج" : "Sign out"}</button>
+    </div>
+
+    <div className="admin-kpis" style={{ marginTop: "2rem" }}>
+      {cards.map(([label, value]) => <article key={String(label)}><span>{String(label)}</span><strong>{String(value)}</strong></article>)}
+    </div>
+
+    <section style={{ marginTop: "2rem" }}>
+      <div className="section-heading"><div><p>OPERATIONS</p><h2>{ar ? "إدارة المتجر" : "Store operations"}</h2></div></div>
+      <div className="admin-cards">
+        <Link href={`/${locale}/admin/catalog`}><article><div><strong>{ar ? "المنتجات والمخزون" : "Products & inventory"}</strong><small>{ar ? "إضافة القطع، تعديل السعر والكمية والصورة." : "Add items and edit price, stock and image."}</small></div><span>→</span></article></Link>
+        <Link href={`/${locale}/admin/orders`}><article><div><strong>{ar ? "الطلبات" : "Orders"}</strong><small>{ar ? "تأكيد وتجهيز وتوصيل الطلبات." : "Confirm, prepare and deliver orders."}</small></div><span>→</span></article></Link>
+        <Link href={`/${locale}/admin/shipping`}><article><div><strong>{ar ? "إعدادات التوصيل" : "Delivery settings"}</strong><small>{ar ? "سعر ومدة التوصيل الداخلي حسب المحافظة." : "Internal delivery price and timing by governorate."}</small></div><span>→</span></article></Link>
+        <Link href={`/${locale}/admin/readiness`}><article><div><strong>{ar ? "جاهزية المتجر" : "Store readiness"}</strong><small>{ar ? "فحص سريع قبل الإطلاق." : "Quick launch checks."}</small></div><span>→</span></article></Link>
+      </div>
+    </section>
+  </main>;
 }
-
-function AdminSection({ section, data, categories, showForm, ar, mutate }: { section: Section; data: unknown; categories: Category[]; showForm: boolean; ar: boolean; mutate: Mutate }) {
-  if (section === "overview") return <Overview data={(data || {}) as Data} ar={ar} />;
-  if (section === "products") return <Products data={(data || []) as Product[]} categories={categories} showForm={showForm} ar={ar} mutate={mutate} />;
-  if (section === "categories") return <Categories data={(data || []) as Category[]} showForm={showForm} ar={ar} mutate={mutate} />;
-  if (section === "inventory") return <Inventory data={(data || []) as Product[]} ar={ar} mutate={mutate} />;
-  if (section === "orders") return <Orders data={(data || []) as Data[]} ar={ar} mutate={mutate} />;
-  if (section === "returns") return <Returns data={(data || []) as Data[]} ar={ar} mutate={mutate} />;
-  if (section === "customers") return <SimpleTable data={(data || []) as Data[]} empty={ar ? "لا يوجد عملاء بعد." : "No customers yet."} />;
-  if (section === "coupons" || section === "discounts") return <Promotions kind={section} data={(data || []) as Data[]} showForm={showForm} ar={ar} mutate={mutate} />;
-  return <Settings data={(data || {}) as Record<string, string>} ar={ar} mutate={mutate} />;
-}
-
-function Overview({ data, ar }: { data: Data; ar: boolean }) { const cards = [[ar ? "المنتجات" : "Products", data.products || 0], [ar ? "الطلبات" : "Orders", data.orders || 0], [ar ? "العملاء" : "Customers", data.customers || 0], [ar ? "مخزون منخفض" : "Low stock", data.low_stock || 0], [ar ? "طلبات معلقة" : "Pending orders", data.pending_orders || 0], [ar ? "المبيعات المدفوعة" : "Paid revenue", `${data.paid_revenue || 0} OMR`], [ar ? "طلبات استرجاع" : "Returns", data.returns || 0]]; return <div className="admin-kpis">{cards.map(([label, value]) => <article key={String(label)}><span>{String(label)}</span><strong>{String(value)}</strong></article>)}</div>; }
-
-function Products({ data, categories, showForm, ar, mutate }: { data: Product[]; categories: Category[]; showForm: boolean; ar: boolean; mutate: Mutate }) { async function submit(form: FormData) { const v = Object.fromEntries(form); await mutate("/products", "POST", { slug: v.slug, sku: v.sku, name_ar: v.name_ar, name_en: v.name_en, description_ar: v.description_ar || null, description_en: v.description_en || null, primary_image_url: v.primary_image_url || null, category_id: v.category_id, variant: { sku: v.sku, title_ar: "أساسي", title_en: "Default", price: Number(v.price), compare_at_price: v.compare_at_price ? Number(v.compare_at_price) : null, stock_quantity: Number(v.stock_quantity) } }); } return <>{showForm && <AdminForm action={submit}><input name="name_ar" placeholder="اسم المنتج بالعربي" required /><input name="name_en" placeholder="Product name in English" required /><input name="slug" placeholder="product-url-slug" dir="ltr" required /><input name="sku" placeholder="SKU" dir="ltr" required /><select name="category_id" required><option value="">{ar ? "اختر الفئة" : "Choose category"}</option>{categories.map((item) => <option value={item.id} key={item.id}>{ar ? item.name_ar : item.name_en}</option>)}</select><input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر" : "Price"} required /><input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق (اختياري)" : "Compare price"} /><input name="stock_quantity" type="number" min="0" placeholder={ar ? "الكمية" : "Stock"} required /><input className="full-field" name="primary_image_url" type="url" placeholder={ar ? "رابط الصورة" : "Image URL"} /><textarea name="description_ar" placeholder="وصف عربي" /><textarea name="description_en" placeholder="English description" /></AdminForm>}<AdminTable headings={[ar ? "المنتج" : "Product", "SKU", ar ? "السعر" : "Price", ar ? "المخزون" : "Stock", ""]}>{data.map((item) => <div className="admin-table-row" key={item.id}><strong>{ar ? item.name_ar : item.name_en}</strong><span>{item.sku}</span><span>{item.variants[0]?.price || "—"}</span><span>{item.variants[0]?.stock_quantity ?? 0}</span><button className="danger-link" onClick={() => void mutate(`/products/${item.id}`, "DELETE")}>{ar ? "إخفاء" : "Archive"}</button></div>)}</AdminTable></>; }
-
-function Categories({ data, showForm, ar, mutate }: { data: Category[]; showForm: boolean; ar: boolean; mutate: Mutate }) { return <>{showForm && <AdminForm action={async (form) => mutate("/categories", "POST", Object.fromEntries(form))}><input name="name_ar" placeholder="اسم الفئة بالعربي" required /><input name="name_en" placeholder="Category name" required /><input name="slug" placeholder="category-slug" required /></AdminForm>}<div className="admin-cards">{data.map((item) => <article key={item.id}><FolderIcon /><div><strong>{ar ? item.name_ar : item.name_en}</strong><small>/{item.slug}</small></div><button className="danger-link" onClick={() => void mutate(`/categories/${item.id}`, "DELETE")}>{ar ? "إخفاء" : "Archive"}</button></article>)}</div></>; }
-
-function Inventory({ data, ar, mutate }: { data: Product[]; ar: boolean; mutate: Mutate }) { const variants = data.flatMap((product) => product.variants.map((variant) => ({ ...variant, product: ar ? product.name_ar : product.name_en }))); return <AdminTable headings={[ar ? "المنتج" : "Product", "SKU", ar ? "الكمية" : "Quantity", "", ""]}>{variants.map((item) => <form className="admin-table-row" action={async (form) => mutate(`/inventory/${item.sku}?quantity=${Number(form.get("quantity"))}`, "PATCH")} key={item.sku}><strong>{item.product}</strong><span>{item.sku}</span><input name="quantity" type="number" min="0" defaultValue={item.stock_quantity} /><button className="table-button">{ar ? "حفظ" : "Save"}</button><span /></form>)}</AdminTable>; }
-
-function Orders({ data, ar, mutate }: { data: Data[]; ar: boolean; mutate: Mutate }) { return <AdminTable headings={[ar ? "الطلب" : "Order", ar ? "الإجمالي" : "Total", ar ? "الدفع" : "Payment", ar ? "الحالة" : "Status", ""]}>{data.map((item) => <div className="admin-table-row" key={String(item.id)}><strong>{String(item.order_number)}</strong><span>{String(item.grand_total)} {String(item.currency)}</span><span>{String(item.payment_status)}</span><select defaultValue={String(item.status)} onChange={(event) => void mutate(`/orders/${item.id}`, "PATCH", { status: event.target.value })}>{["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"].map((state) => <option key={state}>{state}</option>)}</select><span /></div>)}</AdminTable>; }
-
-function Returns({ data, ar, mutate }: { data: Data[]; ar: boolean; mutate: Mutate }) { return <AdminTable headings={[ar ? "الطلب" : "Order", ar ? "السبب" : "Reason", ar ? "الحالة" : "Status", "", ""]}>{data.map((item) => <div className="admin-table-row" key={String(item.id)}><strong>{String(item.order_number)}</strong><span>{String(item.reason)}</span><select defaultValue={String(item.status)} onChange={(event) => void mutate(`/returns/${item.id}`, "PATCH", { status: event.target.value })}>{["requested", "reviewing", "approved", "rejected", "received", "refunded"].map((state) => <option key={state}>{state}</option>)}</select><span /><span /></div>)}</AdminTable>; }
-
-function Promotions({ kind, data, showForm, ar, mutate }: { kind: "coupons" | "discounts"; data: Data[]; showForm: boolean; ar: boolean; mutate: Mutate }) { const coupon = kind === "coupons"; async function submit(form: FormData) { const v = Object.fromEntries(form); await mutate(`/${kind}`, "POST", coupon ? { code: v.name, discount_type: v.discount_type, value: Number(v.value), minimum_order_amount: v.minimum ? Number(v.minimum) : null, usage_limit: v.limit ? Number(v.limit) : null, is_active: true } : { name: v.name, discount_type: v.discount_type, value: Number(v.value), scope: v.scope, scope_reference: v.scope_reference || null, is_active: true }); } return <>{showForm && <AdminForm action={submit}><input name="name" placeholder={coupon ? (ar ? "رمز الكوبون" : "Coupon code") : (ar ? "اسم الخصم" : "Discount name")} required /><select name="discount_type"><option value="percentage">{ar ? "نسبة" : "Percentage"}</option><option value="fixed">{ar ? "مبلغ ثابت" : "Fixed"}</option></select><input name="value" type="number" min="0.001" step="0.001" placeholder={ar ? "القيمة" : "Value"} required />{coupon ? <><input name="minimum" type="number" min="0" step="0.001" placeholder={ar ? "الحد الأدنى للطلب" : "Minimum order"} /><input name="limit" type="number" min="1" placeholder={ar ? "حد الاستخدام" : "Usage limit"} /></> : <><select name="scope"><option value="store">{ar ? "المتجر كله" : "Whole store"}</option><option value="category">{ar ? "فئة" : "Category"}</option><option value="product">{ar ? "منتج" : "Product"}</option></select><input name="scope_reference" placeholder={ar ? "رابط الفئة أو المنتج" : "Category or product slug"} /></>}</AdminForm>}<div className="admin-cards">{data.map((item) => <article key={String(item.id)}><ReceiptPercentIcon /><div><strong>{String(coupon ? item.code : item.name)}</strong><small>{String(item.value)} · {String(item.discount_type)}</small></div><button className="danger-link" onClick={() => void mutate(`/${kind}/${item.id}`, "DELETE")}>{ar ? "حذف" : "Delete"}</button></article>)}</div></>; }
-
-function Settings({ data, ar, mutate }: { data: Record<string, string>; ar: boolean; mutate: Mutate }) { const fields = [["support_email", ar ? "بريد الدعم" : "Support email"], ["support_phone", ar ? "رقم الدعم" : "Support phone"], ["announcement_ar", "شريط الإعلان العربي"], ["announcement_en", "English announcement"]]; return <div className="settings-grid">{fields.map(([key, label]) => <form key={key} action={async (form) => mutate(`/settings/${key}`, "PUT", { key, value: String(form.get("value") || "") })}><label>{label}<input name="value" defaultValue={data[key] || ""} /></label><button className="table-button">{ar ? "حفظ" : "Save"}</button></form>)}</div>; }
-function SimpleTable({ data, empty }: { data: Data[]; empty: string }) { if (!data.length) return <div className="empty-card"><p>{empty}</p></div>; const keys = Object.keys(data[0]).slice(1, 5); return <AdminTable headings={keys}>{data.map((row, index) => <div className="admin-table-row" key={String(row.id || index)}>{keys.map((key) => <span key={key}>{String(row[key] ?? "—")}</span>)}</div>)}</AdminTable>; }
-function AdminTable({ headings, children }: { headings: string[]; children: React.ReactNode }) { return <div className="admin-table"><div className="admin-table-head">{headings.map((heading, index) => <span key={`${heading}-${index}`}>{heading}</span>)}</div>{children}</div>; }
-function AdminForm({ action, children }: { action: (form: FormData) => Promise<void>; children: React.ReactNode }) { return <form className="admin-form" action={action}><div>{children}</div><button className="primary-button">Save</button></form>; }
