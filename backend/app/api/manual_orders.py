@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.accounts import CurrentCustomer
 from app.api.orders import calculate_quote, new_order_number, selected_variant
 from app.core.database import get_session
-from app.models.commerce import Customer, Order, OrderItem
+from app.models.commerce import Address, Customer, Order, OrderItem
 from app.schemas.orders import CheckoutItem, OrderCreated
 from app.services.email import queue_order_event
 from app.services.pricing import included_vat
@@ -41,6 +41,8 @@ class ManualCheckoutCreate(BaseModel):
     customer: ManualCustomer
     items: list[CheckoutItem] = Field(min_length=1, max_length=100)
     payment_method: Literal["cash_on_delivery"] = "cash_on_delivery"
+    save_address: bool = True
+    address_label: str = Field(default="home", min_length=1, max_length=80)
 
 
 @router.post("", response_model=OrderCreated, status_code=status.HTTP_201_CREATED)
@@ -69,6 +71,34 @@ async def create_manual_order(
     customer.full_name = payload.customer.fullName.strip()
     customer.phone = phone
 
+    city = payload.customer.city.strip()
+    address_line = payload.customer.addressLine.strip()
+    if payload.save_address:
+        existing_address = await session.scalar(
+            select(Address).where(
+                Address.customer_id == customer.id,
+                Address.governorate == payload.customer.governorate,
+                Address.city == city,
+                Address.address_line == address_line,
+            )
+        )
+        if existing_address is None:
+            session.add(
+                Address(
+                    customer_id=customer.id,
+                    label=payload.address_label.strip(),
+                    country_code="OM",
+                    governorate=payload.customer.governorate,
+                    city=city,
+                    address_line=address_line,
+                    latitude=payload.customer.latitude,
+                    longitude=payload.customer.longitude,
+                )
+            )
+        else:
+            existing_address.latitude = payload.customer.latitude
+            existing_address.longitude = payload.customer.longitude
+
     lines: list[OrderItem] = []
     for requested in payload.items:
         product = products[requested.product_slug]
@@ -90,7 +120,7 @@ async def create_manual_order(
     merchandise_total = max(subtotal - discount, Decimal("0.000"))
     tax_total = included_vat(merchandise_total)
     location_snapshot = (
-        f"{payload.customer.addressLine.strip()} | GPS "
+        f"{address_line} | GPS "
         f"{payload.customer.latitude:.6f},{payload.customer.longitude:.6f}"
     )
 
@@ -102,7 +132,7 @@ async def create_manual_order(
         customer_phone=phone,
         shipping_country_code="OM",
         shipping_governorate=payload.customer.governorate,
-        shipping_city=payload.customer.city.strip(),
+        shipping_city=city,
         shipping_address_line=location_snapshot,
         payment_method="cash_on_delivery",
         currency="OMR",
