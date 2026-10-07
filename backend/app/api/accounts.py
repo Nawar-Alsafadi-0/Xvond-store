@@ -279,6 +279,29 @@ async def customer_orders(customer: CurrentCustomer, session: Session) -> list[d
     ]
 
 
+@router.get("/account/orders/{order_number}/track")
+async def customer_order_tracking(
+    order_number: str, customer: CurrentCustomer, session: Session
+) -> dict[str, object]:
+    order = await session.scalar(
+        select(Order).where(
+            Order.order_number == order_number.upper(),
+            Order.customer_id == customer.id,
+        )
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {
+        "order_number": order.order_number,
+        "status": order.status,
+        "payment_status": order.payment_status,
+        "payment_method": order.payment_method,
+        "grand_total": str(order.grand_total),
+        "currency": order.currency,
+        "created_at": order.created_at,
+    }
+
+
 @router.get("/account/wishlist")
 async def wishlist(customer: CurrentCustomer, session: Session) -> list[str]:
     result = await session.scalars(
