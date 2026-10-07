@@ -14,8 +14,8 @@ def test_governorate_is_normalized() -> None:
     assert normalize_governorate("Al Dakhiliyah") == "ad dakhiliyah"
 
 
-def test_shipping_rate_applies_below_free_threshold() -> None:
-    assert calculate_shipping_amount(Decimal("2.000"), Decimal("20.000"), Decimal("19.999")) == Decimal("2.000")
+def test_shipping_is_free_below_previous_threshold() -> None:
+    assert calculate_shipping_amount(Decimal("2.000"), Decimal("20.000"), Decimal("19.999")) == Decimal("0.000")
 
 
 def test_shipping_is_free_at_threshold() -> None:

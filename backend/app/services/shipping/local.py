@@ -51,6 +51,5 @@ def is_supported_oman_governorate(value: str) -> bool:
 def calculate_shipping_amount(
     rate_amount: Decimal, free_over: Decimal | None, merchandise_total: Decimal
 ) -> Decimal:
-    if free_over is not None and merchandise_total >= free_over:
-        return Decimal("0.000")
-    return rate_amount
+    """Delivery is free for every currently enabled delivery area."""
+    return Decimal("0.000")
