@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class RegisterRequest(BaseModel):
@@ -47,3 +47,11 @@ class AddressWrite(BaseModel):
     city: str = Field(min_length=2, max_length=120)
     address_line: str = Field(min_length=5, max_length=300)
     postal_code: str | None = Field(default=None, max_length=20)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def validate_coordinates(self) -> "AddressWrite":
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        return self
