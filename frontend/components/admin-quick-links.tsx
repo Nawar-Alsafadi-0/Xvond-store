@@ -18,5 +18,10 @@ export function AdminQuickLinks({ locale }: { locale: Locale }) {
 
   if (!visible) return null;
 
-  return <nav style={{ position: "fixed", insetInlineEnd: 18, bottom: 18, zIndex: 50, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}><Link className="primary-button" href={`/${locale}/admin/catalog`}>{ar ? "إدارة المتجر" : "Store management"}</Link><Link className="secondary-button" href={`/${locale}/admin/operations`}>{ar ? "تشغيل المتجر" : "Store operations"}</Link><Link className="secondary-button" href={`/${locale}/admin/orders`}>{ar ? "الطلبات" : "Orders"}</Link><Link className="secondary-button" href={`/${locale}/admin/readiness`}>{ar ? "جاهزية الإطلاق" : "Launch readiness"}</Link><Link className="secondary-button" href={`/${locale}/admin/shipping`}>{ar ? "إعدادات التوصيل" : "Delivery settings"}</Link></nav>;
+  return <nav style={{ position: "fixed", insetInlineEnd: 18, bottom: 18, zIndex: 50, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+    <Link className="primary-button" href={`/${locale}/admin/catalog`}>{ar ? "المنتجات والمخزون" : "Products & inventory"}</Link>
+    <Link className="secondary-button" href={`/${locale}/admin/orders`}>{ar ? "الطلبات" : "Orders"}</Link>
+    <Link className="secondary-button" href={`/${locale}/admin/shipping`}>{ar ? "التوصيل" : "Delivery"}</Link>
+    <Link className="secondary-button" href={`/${locale}/admin/operations`}>{ar ? "تشغيل المتجر" : "Operations"}</Link>
+  </nav>;
 }
