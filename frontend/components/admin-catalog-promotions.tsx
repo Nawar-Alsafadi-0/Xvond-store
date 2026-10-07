@@ -20,6 +20,7 @@ type Product = {
   is_active: boolean;
   variants: Variant[];
 };
+type StockFilter = "all" | "available" | "low" | "out" | "hidden";
 
 function makeSlug(value: string) {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -35,6 +36,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<StockFilter>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -68,9 +70,17 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return products;
-    return products.filter((product) => [product.name_ar, product.name_en, product.sku].some((value) => value.toLowerCase().includes(needle)));
-  }, [products, query]);
+    return products.filter((product) => {
+      const matchesQuery = !needle || [product.name_ar, product.name_en, product.sku].some((value) => value.toLowerCase().includes(needle));
+      if (!matchesQuery) return false;
+      const stock = product.variants[0]?.stock_quantity ?? 0;
+      if (filter === "available") return product.is_active && stock > 0;
+      if (filter === "low") return product.is_active && stock > 0 && stock <= 5;
+      if (filter === "out") return stock === 0;
+      if (filter === "hidden") return !product.is_active;
+      return true;
+    });
+  }, [products, query, filter]);
 
   async function internalCategoryId() {
     let categories = await adminFetch("/categories") as Category[];
@@ -159,17 +169,22 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
     } finally { setBusyId(null); }
   }
 
-  async function changeStock(product: Product, delta: number) {
+  async function setStock(product: Product, quantity: number) {
     const variant = product.variants[0];
     if (!variant) return;
-    const next = Math.max(0, variant.stock_quantity + delta);
     setBusyId(product.id); setMessage("");
     try {
-      await adminFetch(`/variants/${variant.id}`, { method: "PATCH", body: JSON.stringify({ stock_quantity: next }) });
+      await adminFetch(`/variants/${variant.id}`, { method: "PATCH", body: JSON.stringify({ stock_quantity: Math.max(0, quantity) }) });
       await load();
     } catch {
       setMessage(ar ? "تعذر تعديل المخزون." : "Could not update stock.");
     } finally { setBusyId(null); }
+  }
+
+  async function changeStock(product: Product, delta: number) {
+    const variant = product.variants[0];
+    if (!variant) return;
+    await setStock(product, variant.stock_quantity + delta);
   }
 
   async function toggleVisibility(product: Product) {
@@ -185,8 +200,16 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   if (authorized === null) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
   if (!authorized) return <main className="content-page shell"><h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1><p>{ar ? "سجل دخول الإدارة أولاً." : "Sign in to admin first."}</p><Link className="primary-button" href={`/${locale}/admin`}>{ar ? "دخول الإدارة" : "Admin sign in"}</Link></main>;
 
-  const lowStock = products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) <= 5).length;
+  const lowStock = products.filter((item) => item.is_active && (item.variants[0]?.stock_quantity ?? 0) > 0 && (item.variants[0]?.stock_quantity ?? 0) <= 5).length;
   const outOfStock = products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) === 0).length;
+
+  const filters: { key: StockFilter; ar: string; en: string }[] = [
+    { key: "all", ar: "الكل", en: "All" },
+    { key: "available", ar: "متوفر", en: "Available" },
+    { key: "low", ar: "مخزون منخفض", en: "Low stock" },
+    { key: "out", ar: "نفد", en: "Out of stock" },
+    { key: "hidden", ar: "مخفي", en: "Hidden" },
+  ];
 
   return <main className="content-page shell commerce-page">
     <p className="eyebrow">XVOND STORE ADMIN</p>
@@ -219,7 +242,12 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
       <button className="primary-button" disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإضافة…" : "Adding…") : (ar ? "إضافة للمتجر" : "Add to store")}</button>
     </form>}
 
-    <div style={{ marginBottom: "1rem" }}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={ar ? "ابحث باسم القطعة…" : "Search products…"} style={{ width: "100%", maxWidth: 480 }} /></div>
+    <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={ar ? "ابحث باسم القطعة…" : "Search products…"} style={{ width: "100%", maxWidth: 480 }} />
+      <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
+        {filters.map((item) => <button key={item.key} type="button" className={filter === item.key ? "primary-button" : "secondary-button"} onClick={() => setFilter(item.key)}>{ar ? item.ar : item.en}</button>)}
+      </div>
+    </div>
 
     <div className="admin-cards">
       {filtered.map((product) => {
@@ -234,6 +262,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
             <strong>{ar ? `المخزون: ${stock}` : `Stock: ${stock}`}</strong>
             <button className="table-button" type="button" disabled={!variant || busyId === product.id || stock === 0} onClick={() => void changeStock(product, -1)}>−1</button>
             <button className="table-button" type="button" disabled={!variant || busyId === product.id} onClick={() => void changeStock(product, 1)}>+1</button>
+            <button className="table-button" type="button" disabled={!variant || busyId === product.id || stock === 0} onClick={() => void setStock(product, 0)}>{ar ? "نفد المخزون" : "Out of stock"}</button>
             <button className="secondary-button" type="button" disabled={busyId === product.id} onClick={() => void toggleVisibility(product)}>{product.is_active ? (ar ? "إخفاء" : "Hide") : (ar ? "إظهار" : "Show")}</button>
           </div>
           <details style={{ width: "100%" }}><summary style={{ cursor: "pointer", fontWeight: 700 }}>{ar ? "تعديل التفاصيل" : "Edit details"}</summary>
