@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { z } from "zod";
 import { formatPrice } from "@/lib/catalog";
 import type { Locale } from "@/lib/i18n";
@@ -49,6 +49,17 @@ type SessionResult = {
   profile?: Profile | null;
 };
 
+type SavedAddress = {
+  id: string;
+  label: string;
+  governorate: string;
+  city: string;
+  address_line: string;
+  postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
 type ManualOrder = {
   order_number: string;
   grand_total: string | number;
@@ -67,12 +78,17 @@ type Location = { latitude: number; longitude: number; accuracy: number | null }
 export function CheckoutView({ locale }: { locale: Locale }) {
   const { cart, clearCart } = useCommerce();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [location, setLocation] = useState<Location | null>(null);
   const [governorate, setGovernorate] = useState("");
+  const [city, setCity] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [addressLabel, setAddressLabel] = useState("home");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<ManualOrder | null>(null);
@@ -96,11 +112,27 @@ export function CheckoutView({ locale }: { locale: Locale }) {
         if (!response.ok) return { authenticated: false } as SessionResult;
         return await response.json() as SessionResult;
       })
-      .then((session) => {
+      .then(async (session) => {
         if (!active) return;
-        setProfile(session.authenticated ? session.profile ?? null : null);
+        const nextProfile = session.authenticated ? session.profile ?? null : null;
+        setProfile(nextProfile);
+        if (!nextProfile) {
+          setAddresses([]);
+          return;
+        }
+        const response = await fetch(`${apiUrl}/account/addresses`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!active || !response.ok) return;
+        setAddresses(await response.json() as SavedAddress[]);
       })
-      .catch(() => { if (active) setProfile(null); })
+      .catch(() => {
+        if (active) {
+          setProfile(null);
+          setAddresses([]);
+        }
+      })
       .finally(() => { if (active) setSessionReady(true); });
     return () => { active = false; };
   }, [apiUrl]);
@@ -122,6 +154,30 @@ export function CheckoutView({ locale }: { locale: Locale }) {
     } finally {
       setQuoteLoading(false);
     }
+  }
+
+  function chooseSavedAddress(address: SavedAddress) {
+    setSelectedAddressId(address.id);
+    setAddressLabel(address.label || "home");
+    setCity(address.city);
+    setAddressLine(address.address_line);
+    if (address.latitude != null && address.longitude != null) {
+      setLocation({ latitude: address.latitude, longitude: address.longitude, accuracy: null });
+    } else {
+      setLocation(null);
+    }
+    setError("");
+    void updateGovernorate(address.governorate);
+  }
+
+  function startNewAddress() {
+    setSelectedAddressId("");
+    setAddressLabel("home");
+    setCity("");
+    setAddressLine("");
+    setLocation(null);
+    setError("");
+    void updateGovernorate("");
   }
 
   function captureLocation() {
@@ -174,6 +230,8 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           customer: parsed.data,
           items: checkoutItems,
           payment_method: "cash_on_delivery",
+          save_address: true,
+          address_label: addressLabel || "home",
         }),
       });
 
@@ -222,7 +280,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
         <h1>{ar ? "تم استلام طلبك" : "Order received"}</h1>
         <div className="empty-card">
           <strong style={{ fontSize: "1.2rem" }}>{placedOrder.order_number}</strong>
-          <p>{ar ? "تم تسجيل الطلب بنجاح وهو الآن بانتظار التأكيد من فريق المتجر." : "Your order was placed successfully and is now waiting for store confirmation."}</p>
+          <p>{ar ? "تم تسجيل الطلب بنجاح. فريقنا سيؤكده ويجهزه ثم يوصله لك مباشرة." : "Your order was placed successfully. Our team will confirm, prepare and deliver it directly."}</p>
           <p>{ar ? "الدفع عند الاستلام" : "Cash on delivery"} · {formatPrice(Number(placedOrder.grand_total), locale)}</p>
           <div style={{ display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
             <Link className="primary-button" href={`/${locale}/account`}>{ar ? "عرض طلباتي" : "View my orders"}</Link>
@@ -244,7 +302,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   }
 
   const finalTotal = quote ? Number(quote.grand_total) : subtotal;
-  const shipping = quote ? Number(quote.shipping_total) : 0;
+  const delivery = quote ? Number(quote.shipping_total) : 0;
 
   return (
     <main className="content-page shell commerce-page">
@@ -259,20 +317,38 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           </div>
 
           <h2>{ar ? "2. عنوان التوصيل" : "2. Delivery address"}</h2>
+          {addresses.length > 0 && <div className="pending-choice">
+            <strong>{ar ? "العناوين المحفوظة" : "Saved addresses"}</strong>
+            <div style={{ display: "grid", gap: ".6rem", marginTop: ".75rem" }}>
+              {addresses.map((address) => <button
+                key={address.id}
+                type="button"
+                className={selectedAddressId === address.id ? "primary-button" : "table-button"}
+                onClick={() => chooseSavedAddress(address)}
+                style={{ textAlign: ar ? "right" : "left" }}
+              >
+                <strong>{address.label}</strong> · {address.city} · {address.address_line}
+                {address.latitude == null || address.longitude == null ? (ar ? " — يحتاج تحديد الموقع" : " — location needed") : ""}
+              </button>)}
+              <button type="button" className="text-button" onClick={startNewAddress}>{ar ? "+ استخدام عنوان جديد" : "+ Use a new address"}</button>
+            </div>
+          </div>}
+
           <div className="form-grid">
+            <label>{ar ? "اسم العنوان" : "Address label"}<input value={addressLabel} onChange={(event) => setAddressLabel(event.target.value)} placeholder={ar ? "المنزل، العمل..." : "Home, work..."} /></label>
             <label>{ar ? "المحافظة" : "Governorate"}
-              <select name="governorate" value={governorate} onChange={(event) => void updateGovernorate(event.target.value)} required>
+              <select name="governorate" value={governorate} onChange={(event) => { setSelectedAddressId(""); void updateGovernorate(event.target.value); }} required>
                 <option value="">{ar ? "اختر المحافظة" : "Choose governorate"}</option>
                 {GOVERNORATES.map(([value, labelAr, labelEn]) => <option key={value} value={value}>{ar ? labelAr : labelEn}</option>)}
               </select>
             </label>
-            <label>{ar ? "المدينة / المنطقة" : "City / area"}<input name="city" autoComplete="address-level2" placeholder={ar ? "مثال: الخوير" : "Example: Al Khuwair"} required /></label>
+            <label>{ar ? "المدينة / المنطقة" : "City / area"}<input name="city" autoComplete="address-level2" value={city} onChange={(event) => { setSelectedAddressId(""); setCity(event.target.value); }} placeholder={ar ? "مثال: الخوير" : "Example: Al Khuwair"} required /></label>
           </div>
-          <label>{ar ? "العنوان بالتفصيل" : "Detailed address"}<input name="addressLine" autoComplete="street-address" placeholder={ar ? "الشارع، المبنى، رقم الشقة أو أقرب معلم" : "Street, building, apartment or nearest landmark"} required /></label>
+          <label>{ar ? "العنوان بالتفصيل" : "Detailed address"}<input name="addressLine" autoComplete="street-address" value={addressLine} onChange={(event) => { setSelectedAddressId(""); setAddressLine(event.target.value); }} placeholder={ar ? "الشارع، المبنى، رقم الشقة أو أقرب معلم" : "Street, building, apartment or nearest landmark"} required /></label>
 
           <div className="pending-choice">
             <strong>{ar ? "الموقع على الخريطة" : "Map location"}</strong>
-            <p>{ar ? "مطلوب للتوصيل بدقة. اضغط الزر وأعطِ الموقع صلاحية الوصول إلى GPS." : "Required for accurate delivery. Allow location access when prompted."}</p>
+            <p>{ar ? "مطلوب للتوصيل من فريقنا بدقة. استخدم موقعك الحالي عند عنوان الاستلام." : "Required so our delivery team can reach the address accurately."}</p>
             <button className="table-button" type="button" onClick={captureLocation} disabled={locating}>
               {locating ? (ar ? "جارٍ تحديد الموقع…" : "Getting location…") : location ? (ar ? "تحديث موقعي" : "Update my location") : (ar ? "تحديد موقعي الحالي" : "Use my current location")}
             </button>
@@ -284,22 +360,23 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           <h2>{ar ? "3. الدفع" : "3. Payment"}</h2>
           <div className="pending-choice">
             <strong>{ar ? "الدفع عند الاستلام" : "Cash on delivery"}</strong>
-            <p>{ar ? "تدفع قيمة الطلب عند استلامه. لا يوجد دفع إلكتروني حالياً." : "Pay when your order is delivered. Online payment is not enabled right now."}</p>
+            <p>{ar ? "تدفع قيمة الطلب لفريق التوصيل عند استلامه." : "Pay our delivery team when the order arrives."}</p>
           </div>
 
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={busy || quoteLoading || !location}>
             {busy ? (ar ? "جارٍ إرسال الطلب…" : "Placing order…") : (ar ? "تأكيد الطلب" : "Place order")}
           </button>
+          <small>{ar ? "سيتم حفظ عنوان التوصيل في حسابك لاستخدامه في الطلبات القادمة." : "This delivery address will be saved to your account for future orders."}</small>
         </form>
 
         <aside className="order-summary">
           <h2>{ar ? "ملخص الطلب" : "Order summary"}</h2>
           {cart.map((line) => <div key={`${line.product.slug}-${line.product.variantId ?? "default"}`}><span>{line.product.name[locale]} × {line.quantity}</span><strong>{formatPrice(line.product.price * line.quantity, locale)}</strong></div>)}
           <div><span>{ar ? "المجموع الفرعي" : "Subtotal"}</span><strong>{formatPrice(subtotal, locale)}</strong></div>
-          <div><span>{ar ? "التوصيل" : "Delivery"}</span><strong>{quoteLoading ? "…" : governorate && quote ? formatPrice(shipping, locale) : (ar ? "اختر المحافظة" : "Choose governorate")}</strong></div>
+          <div><span>{ar ? "التوصيل" : "Delivery"}</span><strong>{quoteLoading ? "…" : governorate && quote ? formatPrice(delivery, locale) : (ar ? "اختر المحافظة" : "Choose governorate")}</strong></div>
           <div><span>{ar ? "الإجمالي" : "Total"}</span><strong>{formatPrice(finalTotal, locale)}</strong></div>
-          {quote?.shipping_available && quote.estimated_days_min && quote.estimated_days_max && <p>{ar ? `التوصيل المتوقع خلال ${quote.estimated_days_min}–${quote.estimated_days_max} أيام.` : `Estimated delivery in ${quote.estimated_days_min}–${quote.estimated_days_max} days.`}</p>}
+          {quote?.shipping_available && quote.estimated_days_min && quote.estimated_days_max && <p>{ar ? `التوصيل المتوقع من فريقنا خلال ${quote.estimated_days_min}–${quote.estimated_days_max} أيام.` : `Estimated delivery by our team in ${quote.estimated_days_min}–${quote.estimated_days_max} days.`}</p>}
           {governorate && quote && !quote.shipping_available && <p className="form-error">{ar ? "التوصيل غير متاح لهذه المحافظة حالياً." : "Delivery is not available for this governorate yet."}</p>}
         </aside>
       </div>
