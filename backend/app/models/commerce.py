@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -99,6 +100,8 @@ class Address(UUIDMixin, TimestampMixin, Base):
     city: Mapped[str] = mapped_column(String(120))
     address_line: Mapped[str] = mapped_column(String(300))
     postal_code: Mapped[str | None] = mapped_column(String(20))
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
 
 
 class Order(UUIDMixin, TimestampMixin, Base):
