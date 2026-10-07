@@ -82,13 +82,13 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
 
           <div className={styles.buyBox}>
             <ProductPurchase product={product} locale={locale} />
-            <p className={styles.note}>{ar ? "السعر النهائي ورسوم التوصيل يظهران قبل تأكيد الطلب. الدفع حالياً كاش عند الاستلام." : "Your final total and delivery fee are shown before order confirmation. Payment is currently cash on delivery."}</p>
+            <p className={styles.note}>{ar ? "التوصيل مجاني. الدفع حالياً كاش عند الاستلام." : "Delivery is free. Payment is currently cash on delivery."}</p>
           </div>
 
           <div className={styles.promises}>
             <div className={styles.promise}>
-              <strong>{ar ? "توصيل من طرفنا" : "Delivered by us"}</strong>
-              <span>{ar ? "فريق المتجر يتولى التوصيل مباشرة." : "Handled directly by the store team."}</span>
+              <strong>{ar ? "توصيل مجاني" : "Free delivery"}</strong>
+              <span>{ar ? "التوصيل من طرف فريق المتجر بدون رسوم." : "Delivered directly by the store team at no extra charge."}</span>
             </div>
             <div className={styles.promise}>
               <strong>{ar ? "موقع دقيق" : "Exact location"}</strong>
