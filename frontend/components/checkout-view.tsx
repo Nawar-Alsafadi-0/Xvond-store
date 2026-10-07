@@ -105,24 +105,24 @@ export function CheckoutView({ locale }: { locale: Locale }) {
     return () => { active = false; };
   }, [apiUrl]);
 
-  useEffect(() => {
-    if (!governorate || !checkoutItems.length || checkoutItems.some((item) => !item.variant_id)) {
-      setQuote(null);
-      return;
-    }
-    let active = true;
+  async function updateGovernorate(nextGovernorate: string) {
+    setGovernorate(nextGovernorate);
+    setQuote(null);
+    if (!nextGovernorate || !checkoutItems.length || checkoutItems.some((item) => !item.variant_id)) return;
     setQuoteLoading(true);
-    void fetch(`${apiUrl}/orders/quote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: checkoutItems, governorate }),
-    })
-      .then(async (response) => response.ok ? await response.json() as Quote : null)
-      .then((result) => { if (active) setQuote(result); })
-      .catch(() => { if (active) setQuote(null); })
-      .finally(() => { if (active) setQuoteLoading(false); });
-    return () => { active = false; };
-  }, [apiUrl, checkoutItems, governorate]);
+    try {
+      const response = await fetch(`${apiUrl}/orders/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: checkoutItems, governorate: nextGovernorate }),
+      });
+      setQuote(response.ok ? await response.json() as Quote : null);
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
 
   function captureLocation() {
     setError("");
@@ -261,7 +261,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           <h2>{ar ? "2. عنوان التوصيل" : "2. Delivery address"}</h2>
           <div className="form-grid">
             <label>{ar ? "المحافظة" : "Governorate"}
-              <select name="governorate" value={governorate} onChange={(event) => setGovernorate(event.target.value)} required>
+              <select name="governorate" value={governorate} onChange={(event) => void updateGovernorate(event.target.value)} required>
                 <option value="">{ar ? "اختر المحافظة" : "Choose governorate"}</option>
                 {GOVERNORATES.map(([value, labelAr, labelEn]) => <option key={value} value={value}>{ar ? labelAr : labelEn}</option>)}
               </select>
