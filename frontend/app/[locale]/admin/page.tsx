@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { AdminControlCenter } from "@/components/admin-control-center";
-import { AdminQuickLinks } from "@/components/admin-quick-links";
 import { isLocale } from "@/lib/i18n";
 
 export default async function AdminPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <><AdminControlCenter locale={locale} /><AdminQuickLinks locale={locale} /></>;
+  return <AdminControlCenter locale={locale} />;
 }

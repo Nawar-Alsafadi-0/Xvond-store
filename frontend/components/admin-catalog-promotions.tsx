@@ -1,60 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-type Category = {
+type Category = { id: string; slug: string; is_active: boolean };
+type Variant = { id: string; sku: string; price: string; compare_at_price: string | null; stock_quantity: number };
+type Product = {
   id: string;
   slug: string;
+  sku: string;
   name_ar: string;
   name_en: string;
   description_ar: string | null;
   description_en: string | null;
+  primary_image_url: string | null;
   is_active: boolean;
+  variants: Variant[];
 };
 
-type Product = {
-  id: string;
-  sku: string;
-  name_ar: string;
-  name_en: string;
-  is_active: boolean;
-  variants: { id: string; price: string; stock_quantity: number }[];
-};
+function makeSlug(value: string) {
+  const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `${normalized || "item"}-${Date.now().toString(36)}`;
+}
 
-type Coupon = {
-  id: string;
-  code: string;
-  discount_type: "percentage" | "fixed";
-  value: string;
-  minimum_order_amount: string | null;
-  usage_limit: number | null;
-  usage_count: number;
-  is_active: boolean;
-};
-
-type Discount = {
-  id: string;
-  name: string;
-  discount_type: "percentage" | "fixed";
-  value: string;
-  scope: "store" | "category" | "product";
-  scope_reference: string | null;
-  is_active: boolean;
-};
+function makeSku() {
+  return `XV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
 
 export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   const ar = locale === "ar";
   const [authorized, setAuthorized] = useState<boolean | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [query, setQuery] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const adminFetch = useCallback(async (path: string, options?: RequestInit) => {
     const response = await fetch(`${apiUrl}/admin${path}`, {
@@ -72,156 +55,206 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
 
   const load = useCallback(async () => {
     try {
-      const me = await fetch(`${apiUrl}/auth/admin/me`, { credentials: "include" });
+      const me = await fetch(`${apiUrl}/auth/admin/me`, { credentials: "include", cache: "no-store" });
       if (!me.ok) { setAuthorized(false); return; }
       setAuthorized(true);
-      const [categoryList, productList, couponList, discountList] = await Promise.all([
-        adminFetch("/categories"),
-        adminFetch("/products"),
-        adminFetch("/coupons"),
-        adminFetch("/discounts"),
-      ]);
-      setCategories(categoryList as Category[]);
-      setProducts(productList as Product[]);
-      setCoupons(couponList as Coupon[]);
-      setDiscounts(discountList as Discount[]);
+      setProducts(await adminFetch("/products") as Product[]);
     } catch (error) {
-      if ((error as Error).message !== "unauthorized") {
-        setMessage(ar ? "تعذر تحميل بيانات المتجر." : "Could not load store data.");
-      }
+      if ((error as Error).message !== "unauthorized") setMessage(ar ? "تعذر تحميل المنتجات." : "Could not load products.");
     }
   }, [adminFetch, ar]);
 
   useEffect(() => { queueMicrotask(() => void load()); }, [load]);
 
-  async function run(action: () => Promise<void>, success: string) {
-    setBusy(true); setMessage("");
-    try {
-      await action();
-      setMessage(success);
-      await load();
-    } catch {
-      setMessage(ar ? "تعذر الحفظ. راجع البيانات." : "Could not save. Check the data.");
-    } finally { setBusy(false); }
-  }
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return products;
+    return products.filter((product) => [product.name_ar, product.name_en, product.sku].some((value) => value.toLowerCase().includes(needle)));
+  }, [products, query]);
 
-  async function createCategory(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = Object.fromEntries(new FormData(form));
-    await run(async () => {
-      await adminFetch("/categories", { method: "POST", body: JSON.stringify(values) });
-      form.reset();
-    }, ar ? "تمت إضافة القسم." : "Category added.");
+  async function internalCategoryId() {
+    let categories = await adminFetch("/categories") as Category[];
+    const active = categories.find((item) => item.is_active);
+    if (active) return active.id;
+    await adminFetch("/categories", {
+      method: "POST",
+      body: JSON.stringify({ slug: "catalog", name_ar: "المتجر", name_en: "Store" }),
+    });
+    categories = await adminFetch("/categories") as Category[];
+    const created = categories.find((item) => item.slug === "catalog");
+    if (!created) throw new Error("category");
+    return created.id;
   }
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form));
-    const body = {
-      slug: String(values.slug),
-      sku: String(values.sku),
-      name_ar: String(values.name_ar),
-      name_en: String(values.name_en),
-      description_ar: String(values.description_ar || "") || null,
-      description_en: String(values.description_en || "") || null,
-      primary_image_url: String(values.primary_image_url || "") || null,
-      category_id: String(values.category_id),
-      variant: {
-        sku: String(values.sku),
-        title_ar: "أساسي",
-        title_en: "Default",
-        price: Number(values.price),
-        compare_at_price: values.compare_at_price ? Number(values.compare_at_price) : null,
-        stock_quantity: Number(values.stock_quantity),
-      },
-    };
-    await run(async () => {
-      await adminFetch("/products", { method: "POST", body: JSON.stringify(body) });
-      form.reset();
-    }, ar ? "تمت إضافة المنتج." : "Product added.");
-  }
-
-  async function createCoupon(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = Object.fromEntries(new FormData(form));
-    await run(async () => {
-      await adminFetch("/coupons", {
+    const nameAr = String(values.name_ar).trim();
+    const nameEn = String(values.name_en || "").trim() || nameAr;
+    const sku = makeSku();
+    setBusyId("new"); setMessage("");
+    try {
+      const categoryId = await internalCategoryId();
+      await adminFetch("/products", {
         method: "POST",
         body: JSON.stringify({
-          code: String(values.code),
-          discount_type: String(values.discount_type),
-          value: Number(values.value),
-          minimum_order_amount: values.minimum_order_amount ? Number(values.minimum_order_amount) : null,
-          usage_limit: values.usage_limit ? Number(values.usage_limit) : null,
-          is_active: true,
+          slug: makeSlug(nameEn),
+          sku,
+          name_ar: nameAr,
+          name_en: nameEn,
+          description_ar: String(values.description_ar || "").trim() || null,
+          description_en: String(values.description_en || "").trim() || null,
+          primary_image_url: String(values.primary_image_url || "").trim() || null,
+          category_id: categoryId,
+          variant: {
+            sku,
+            title_ar: "أساسي",
+            title_en: "Default",
+            price: Number(values.price),
+            compare_at_price: values.compare_at_price ? Number(values.compare_at_price) : null,
+            stock_quantity: Number(values.stock_quantity),
+          },
         }),
       });
       form.reset();
-    }, ar ? "تمت إضافة الكوبون." : "Coupon added.");
+      setShowAdd(false);
+      setMessage(ar ? "تمت إضافة القطعة." : "Product added.");
+      await load();
+    } catch {
+      setMessage(ar ? "تعذر إضافة القطعة. راجع السعر أو رابط الصورة." : "Could not add the product. Check price or image URL.");
+    } finally { setBusyId(null); }
   }
 
-  async function createDiscount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = Object.fromEntries(new FormData(form));
-    await run(async () => {
-      await adminFetch("/discounts", {
-        method: "POST",
+  async function saveProduct(product: Product, form: FormData) {
+    const variant = product.variants[0];
+    if (!variant) return;
+    setBusyId(product.id); setMessage("");
+    try {
+      const price = Number(form.get("price"));
+      const compare = String(form.get("compare_at_price") || "").trim();
+      await adminFetch(`/products/${product.id}`, {
+        method: "PATCH",
         body: JSON.stringify({
-          name: String(values.name),
-          discount_type: String(values.discount_type),
-          value: Number(values.value),
-          scope: String(values.scope),
-          scope_reference: String(values.scope_reference || "") || null,
-          is_active: true,
+          name_ar: String(form.get("name_ar")),
+          name_en: String(form.get("name_en") || form.get("name_ar")),
+          description_ar: String(form.get("description_ar") || "").trim() || null,
+          description_en: String(form.get("description_en") || "").trim() || null,
+          primary_image_url: String(form.get("primary_image_url") || "").trim() || null,
+          is_active: form.get("is_active") === "on",
         }),
       });
-      form.reset();
-    }, ar ? "تمت إضافة الخصم." : "Discount added.");
+      await adminFetch(`/variants/${variant.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          price,
+          compare_at_price: compare ? Number(compare) : null,
+          stock_quantity: Number(form.get("stock_quantity")),
+        }),
+      });
+      setMessage(ar ? "تم حفظ التعديلات." : "Changes saved.");
+      await load();
+    } catch {
+      setMessage(ar ? "تعذر حفظ المنتج. إذا وضعت سعراً سابقاً يجب أن يكون أعلى من السعر الحالي." : "Could not save. Compare price must be higher than the current price.");
+    } finally { setBusyId(null); }
+  }
+
+  async function changeStock(product: Product, delta: number) {
+    const variant = product.variants[0];
+    if (!variant) return;
+    const next = Math.max(0, variant.stock_quantity + delta);
+    setBusyId(product.id); setMessage("");
+    try {
+      await adminFetch(`/variants/${variant.id}`, { method: "PATCH", body: JSON.stringify({ stock_quantity: next }) });
+      await load();
+    } catch {
+      setMessage(ar ? "تعذر تعديل المخزون." : "Could not update stock.");
+    } finally { setBusyId(null); }
+  }
+
+  async function toggleVisibility(product: Product) {
+    setBusyId(product.id); setMessage("");
+    try {
+      await adminFetch(`/products/${product.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !product.is_active }) });
+      await load();
+    } catch {
+      setMessage(ar ? "تعذر تغيير حالة المنتج." : "Could not change product visibility.");
+    } finally { setBusyId(null); }
   }
 
   if (authorized === null) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
-  if (!authorized) return <main className="content-page shell"><h1>{ar ? "إدارة المتجر" : "Store management"}</h1><p>{ar ? "سجل دخول الإدارة أولًا." : "Sign in to admin first."}</p><Link className="primary-button" href={`/${locale}/admin`}>{ar ? "دخول الإدارة" : "Admin sign in"}</Link></main>;
+  if (!authorized) return <main className="content-page shell"><h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1><p>{ar ? "سجل دخول الإدارة أولاً." : "Sign in to admin first."}</p><Link className="primary-button" href={`/${locale}/admin`}>{ar ? "دخول الإدارة" : "Admin sign in"}</Link></main>;
+
+  const lowStock = products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) <= 5).length;
+  const outOfStock = products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) === 0).length;
 
   return <main className="content-page shell commerce-page">
-    <p className="eyebrow">XVOND SMART STORE ADMIN</p>
-    <h1>{ar ? "إدارة المتجر" : "Store management"}</h1>
-    <p><Link href={`/${locale}/admin`}>← {ar ? "لوحة التحكم" : "Control center"}</Link></p>
+    <p className="eyebrow">XVOND STORE ADMIN</p>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+      <div><h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1><p><Link href={`/${locale}/admin`}>← {ar ? "لوحة التحكم" : "Control center"}</Link></p></div>
+      <button className="primary-button" onClick={() => setShowAdd((value) => !value)}>{showAdd ? (ar ? "إغلاق" : "Close") : (ar ? "+ إضافة قطعة" : "+ Add product")}</button>
+    </div>
+
     {message && <p className="admin-message">{message}</p>}
 
-    <section style={{ marginTop: "2rem" }}>
-      <div className="section-heading"><div><p>CATALOG</p><h2>{ar ? "الأقسام" : "Categories"}</h2></div></div>
-      <form className="checkout-form" onSubmit={(event) => void createCategory(event)}>
-        <div className="form-grid"><input name="name_ar" placeholder="اسم القسم بالعربي" required /><input name="name_en" placeholder="Category name" required /><input name="slug" placeholder="category-slug" dir="ltr" required /><textarea name="description_ar" placeholder="وصف عربي (اختياري)" /><textarea name="description_en" placeholder="English description (optional)" /></div>
-        <button className="primary-button" disabled={busy}>{ar ? "إضافة قسم" : "Add category"}</button>
-      </form>
-      <div className="admin-cards" style={{ marginTop: "1rem" }}>{categories.map((category) => <form key={category.id} action={async (form) => run(async () => {
-        await adminFetch(`/categories/${category.id}`, { method: "PATCH", body: JSON.stringify({ name_ar: String(form.get("name_ar")), name_en: String(form.get("name_en")), slug: String(form.get("slug")), is_active: form.get("is_active") === "on" }) });
-      }, ar ? "تم تحديث القسم." : "Category updated.")}><div style={{ display: "grid", gap: ".5rem", width: "100%" }}><input name="name_ar" defaultValue={category.name_ar} required /><input name="name_en" defaultValue={category.name_en} required /><input name="slug" defaultValue={category.slug} dir="ltr" required /><label><input name="is_active" type="checkbox" defaultChecked={category.is_active} /> {ar ? "ظاهر" : "Active"}</label><button className="table-button">{ar ? "حفظ" : "Save"}</button></div></form>)}</div>
-    </section>
+    <div className="admin-kpis" style={{ marginBlock: "1.5rem" }}>
+      <article><span>{ar ? "كل القطع" : "All products"}</span><strong>{products.length}</strong></article>
+      <article><span>{ar ? "ظاهرة للبيع" : "Visible"}</span><strong>{products.filter((item) => item.is_active).length}</strong></article>
+      <article><span>{ar ? "مخزون منخفض" : "Low stock"}</span><strong>{lowStock}</strong></article>
+      <article><span>{ar ? "نفد المخزون" : "Out of stock"}</span><strong>{outOfStock}</strong></article>
+    </div>
 
-    <section style={{ marginTop: "3rem" }}>
-      <div className="section-heading"><div><p>PRODUCTS</p><h2>{ar ? "المنتجات" : "Products"}</h2></div><Link className="secondary-button" href={`/${locale}/admin/operations`}>{ar ? "تعديل المنتجات الحالية" : "Edit existing products"}</Link></div>
-      <form className="checkout-form" onSubmit={(event) => void createProduct(event)}>
-        <div className="form-grid"><input name="name_ar" placeholder="اسم المنتج بالعربي" required /><input name="name_en" placeholder="Product name" required /><input name="slug" placeholder="product-url-slug" dir="ltr" required /><input name="sku" placeholder="SKU" dir="ltr" required /><select name="category_id" required><option value="">{ar ? "اختر القسم" : "Choose category"}</option>{categories.filter((item) => item.is_active).map((item) => <option key={item.id} value={item.id}>{ar ? item.name_ar : item.name_en}</option>)}</select><input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر OMR" : "Price OMR"} required /><input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق" : "Compare price"} /><input name="stock_quantity" type="number" min="0" placeholder={ar ? "المخزون" : "Stock"} required /><input className="full-field" name="primary_image_url" type="url" placeholder={ar ? "رابط صورة المنتج" : "Product image URL"} /><textarea name="description_ar" placeholder="وصف عربي" /><textarea name="description_en" placeholder="English description" /></div>
-        <button className="primary-button" disabled={busy}>{ar ? "إضافة منتج" : "Add product"}</button>
-      </form>
-      <div className="admin-kpis" style={{ marginTop: "1rem" }}><article><span>{ar ? "إجمالي المنتجات" : "Products"}</span><strong>{products.length}</strong></article><article><span>{ar ? "المنتجات الظاهرة" : "Active"}</span><strong>{products.filter((item) => item.is_active).length}</strong></article><article><span>{ar ? "مخزون منخفض" : "Low stock"}</span><strong>{products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) <= 5).length}</strong></article></div>
-    </section>
+    {showAdd && <form className="checkout-form" onSubmit={(event) => void createProduct(event)} style={{ marginBottom: "1.5rem" }}>
+      <h2>{ar ? "إضافة قطعة جديدة" : "Add a new product"}</h2>
+      <div className="form-grid">
+        <input name="name_ar" placeholder={ar ? "اسم القطعة" : "Product name"} required />
+        <input name="name_en" placeholder={ar ? "الاسم بالإنجليزية (اختياري)" : "English name (optional)"} />
+        <input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر OMR" : "Price OMR"} required />
+        <input name="stock_quantity" type="number" min="0" placeholder={ar ? "الكمية المتوفرة" : "Stock quantity"} required />
+        <input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق (اختياري)" : "Previous price (optional)"} />
+        <input name="primary_image_url" type="url" placeholder={ar ? "رابط الصورة" : "Image URL"} />
+        <textarea name="description_ar" placeholder={ar ? "وصف القطعة (اختياري)" : "Description (optional)"} />
+        <textarea name="description_en" placeholder={ar ? "الوصف بالإنجليزية (اختياري)" : "English description (optional)"} />
+      </div>
+      <button className="primary-button" disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإضافة…" : "Adding…") : (ar ? "إضافة للمتجر" : "Add to store")}</button>
+    </form>}
 
-    <section style={{ marginTop: "3rem" }}>
-      <div className="section-heading"><div><p>PROMOTIONS</p><h2>{ar ? "الكوبونات" : "Coupons"}</h2></div></div>
-      <form className="checkout-form" onSubmit={(event) => void createCoupon(event)}><div className="form-grid"><input name="code" placeholder="WELCOME10" dir="ltr" required /><select name="discount_type"><option value="percentage">{ar ? "نسبة %" : "Percentage"}</option><option value="fixed">{ar ? "مبلغ ثابت" : "Fixed amount"}</option></select><input name="value" type="number" step="0.001" min="0.001" placeholder={ar ? "قيمة الخصم" : "Value"} required /><input name="minimum_order_amount" type="number" step="0.001" min="0" placeholder={ar ? "حد أدنى للطلب" : "Minimum order"} /><input name="usage_limit" type="number" min="1" placeholder={ar ? "عدد الاستخدامات" : "Usage limit"} /></div><button className="primary-button" disabled={busy}>{ar ? "إضافة كوبون" : "Add coupon"}</button></form>
-      <div className="admin-cards" style={{ marginTop: "1rem" }}>{coupons.map((coupon) => <article key={coupon.id}><div><strong>{coupon.code}</strong><small>{coupon.value} {coupon.discount_type === "percentage" ? "%" : "OMR"} · {coupon.usage_count}/{coupon.usage_limit ?? "∞"}</small></div><div style={{ display: "flex", gap: ".5rem" }}><button className="table-button" onClick={() => void run(async () => { await adminFetch(`/coupons/${coupon.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !coupon.is_active }) }); }, ar ? "تم تحديث الكوبون." : "Coupon updated.")}>{coupon.is_active ? (ar ? "إيقاف" : "Disable") : (ar ? "تفعيل" : "Enable")}</button><button className="danger-link" onClick={() => void run(async () => { await adminFetch(`/coupons/${coupon.id}`, { method: "DELETE" }); }, ar ? "تم حذف الكوبون." : "Coupon deleted.")}>{ar ? "حذف" : "Delete"}</button></div></article>)}</div>
-    </section>
+    <div style={{ marginBottom: "1rem" }}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={ar ? "ابحث باسم القطعة…" : "Search products…"} style={{ width: "100%", maxWidth: 480 }} /></div>
 
-    <section style={{ marginTop: "3rem", marginBottom: "3rem" }}>
-      <div className="section-heading"><div><p>DISCOUNTS</p><h2>{ar ? "الخصومات التلقائية" : "Automatic discounts"}</h2></div></div>
-      <form className="checkout-form" onSubmit={(event) => void createDiscount(event)}><div className="form-grid"><input name="name" placeholder={ar ? "اسم الخصم" : "Discount name"} required /><select name="discount_type"><option value="percentage">{ar ? "نسبة %" : "Percentage"}</option><option value="fixed">{ar ? "مبلغ ثابت" : "Fixed amount"}</option></select><input name="value" type="number" step="0.001" min="0.001" placeholder={ar ? "قيمة الخصم" : "Value"} required /><select name="scope"><option value="store">{ar ? "كل المتجر" : "Whole store"}</option><option value="category">{ar ? "قسم" : "Category"}</option><option value="product">{ar ? "منتج" : "Product"}</option></select><input name="scope_reference" placeholder={ar ? "Slug للقسم/المنتج عند الحاجة" : "Category/product slug when needed"} /></div><button className="primary-button" disabled={busy}>{ar ? "إضافة خصم" : "Add discount"}</button></form>
-      <div className="admin-cards" style={{ marginTop: "1rem" }}>{discounts.map((discount) => <article key={discount.id}><div><strong>{discount.name}</strong><small>{discount.value} {discount.discount_type === "percentage" ? "%" : "OMR"} · {discount.scope}{discount.scope_reference ? ` / ${discount.scope_reference}` : ""}</small></div><div style={{ display: "flex", gap: ".5rem" }}><button className="table-button" onClick={() => void run(async () => { await adminFetch(`/discounts/${discount.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !discount.is_active }) }); }, ar ? "تم تحديث الخصم." : "Discount updated.")}>{discount.is_active ? (ar ? "إيقاف" : "Disable") : (ar ? "تفعيل" : "Enable")}</button><button className="danger-link" onClick={() => void run(async () => { await adminFetch(`/discounts/${discount.id}`, { method: "DELETE" }); }, ar ? "تم حذف الخصم." : "Discount deleted.")}>{ar ? "حذف" : "Delete"}</button></div></article>)}</div>
-    </section>
+    <div className="admin-cards">
+      {filtered.map((product) => {
+        const variant = product.variants[0];
+        const stock = variant?.stock_quantity ?? 0;
+        return <article key={product.id} style={{ alignItems: "stretch", gap: "1rem", opacity: busyId === product.id ? .65 : 1 }}>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", minWidth: 0 }}>
+            <div aria-label={ar ? product.name_ar : product.name_en} style={{ width: 82, height: 82, borderRadius: 14, flex: "0 0 auto", background: product.primary_image_url ? `center / cover no-repeat url(${product.primary_image_url})` : "var(--surface-2, #eee)" }} />
+            <div style={{ minWidth: 0 }}><strong>{ar ? product.name_ar : product.name_en}</strong><small style={{ display: "block" }}>{variant ? `${variant.price} OMR` : "—"}</small><small style={{ display: "block" }}>{product.is_active ? (ar ? "ظاهر للبيع" : "Visible") : (ar ? "مخفي" : "Hidden")}</small></div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
+            <strong>{ar ? `المخزون: ${stock}` : `Stock: ${stock}`}</strong>
+            <button className="table-button" type="button" disabled={!variant || busyId === product.id || stock === 0} onClick={() => void changeStock(product, -1)}>−1</button>
+            <button className="table-button" type="button" disabled={!variant || busyId === product.id} onClick={() => void changeStock(product, 1)}>+1</button>
+            <button className="secondary-button" type="button" disabled={busyId === product.id} onClick={() => void toggleVisibility(product)}>{product.is_active ? (ar ? "إخفاء" : "Hide") : (ar ? "إظهار" : "Show")}</button>
+          </div>
+          <details style={{ width: "100%" }}><summary style={{ cursor: "pointer", fontWeight: 700 }}>{ar ? "تعديل التفاصيل" : "Edit details"}</summary>
+            {variant && <form action={async (form) => saveProduct(product, form)} className="checkout-form" style={{ marginTop: "1rem" }}>
+              <div className="form-grid">
+                <input name="name_ar" defaultValue={product.name_ar} required />
+                <input name="name_en" defaultValue={product.name_en} />
+                <input name="price" type="number" step="0.001" min="0.001" defaultValue={variant.price} required />
+                <input name="stock_quantity" type="number" min="0" defaultValue={stock} required />
+                <input name="compare_at_price" type="number" step="0.001" min="0.001" defaultValue={variant.compare_at_price || ""} placeholder={ar ? "السعر السابق" : "Previous price"} />
+                <input name="primary_image_url" type="url" defaultValue={product.primary_image_url || ""} placeholder={ar ? "رابط الصورة" : "Image URL"} />
+                <textarea name="description_ar" defaultValue={product.description_ar || ""} placeholder={ar ? "الوصف" : "Description"} />
+                <textarea name="description_en" defaultValue={product.description_en || ""} placeholder={ar ? "الوصف بالإنجليزية" : "English description"} />
+              </div>
+              <label style={{ display: "flex", gap: ".5rem", alignItems: "center" }}><input name="is_active" type="checkbox" defaultChecked={product.is_active} /> {ar ? "ظاهر للبيع" : "Visible for sale"}</label>
+              <button className="primary-button" disabled={busyId === product.id}>{ar ? "حفظ" : "Save"}</button>
+            </form>}
+          </details>
+        </article>;
+      })}
+      {!filtered.length && <article><p>{ar ? "ما في منتجات مطابقة." : "No matching products."}</p></article>}
+    </div>
   </main>;
 }
