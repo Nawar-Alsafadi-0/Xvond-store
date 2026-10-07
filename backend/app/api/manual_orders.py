@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app.models.commerce import Customer, Order, OrderItem
 from app.schemas.orders import CheckoutItem, OrderCreated
 from app.services.email import queue_order_event
 from app.services.pricing import included_vat
+from app.services.shipping.local import OMAN_GOVERNORATE_KEYS, normalize_governorate
 
 router = APIRouter(prefix="/manual-orders", tags=["orders"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -21,6 +22,19 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 class ManualCustomer(BaseModel):
     fullName: str = Field(min_length=2, max_length=180)
     phone: str = Field(min_length=8, max_length=20)
+    governorate: str = Field(min_length=2, max_length=120)
+    city: str = Field(min_length=2, max_length=120)
+    addressLine: str = Field(min_length=5, max_length=220)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+    @field_validator("governorate")
+    @classmethod
+    def validate_oman_governorate(cls, value: str) -> str:
+        normalized = normalize_governorate(value)
+        if normalized not in OMAN_GOVERNORATE_KEYS:
+            raise ValueError("Governorate must be one of the supported Oman governorates")
+        return normalized
 
 
 class ManualCheckoutCreate(BaseModel):
@@ -35,13 +49,15 @@ async def create_manual_order(
     customer: CurrentCustomer,
     session: Session,
 ) -> Order:
-    products, subtotal, discount, promotion, _, _, _ = await calculate_quote(
+    products, subtotal, discount, promotion, _, rate, shipping_total = await calculate_quote(
         payload.items,
         None,
         session,
-        governorate=None,
+        governorate=payload.customer.governorate,
         lock=True,
     )
+    if rate is None:
+        raise HTTPException(status_code=422, detail="Delivery is not available for this governorate")
 
     phone = payload.customer.phone.strip()
     existing_phone = await session.scalar(
@@ -71,9 +87,12 @@ async def create_manual_order(
             )
         )
 
-    shipping_total = Decimal("0.000")
     merchandise_total = max(subtotal - discount, Decimal("0.000"))
     tax_total = included_vat(merchandise_total)
+    location_snapshot = (
+        f"{payload.customer.addressLine.strip()} | GPS "
+        f"{payload.customer.latitude:.6f},{payload.customer.longitude:.6f}"
+    )
 
     order = Order(
         order_number=new_order_number(),
@@ -82,16 +101,16 @@ async def create_manual_order(
         customer_email=customer.email,
         customer_phone=phone,
         shipping_country_code="OM",
-        shipping_governorate=None,
-        shipping_city=None,
-        shipping_address_line=None,
+        shipping_governorate=payload.customer.governorate,
+        shipping_city=payload.customer.city.strip(),
+        shipping_address_line=location_snapshot,
         payment_method="cash_on_delivery",
         currency="OMR",
         subtotal=subtotal,
         discount_total=discount,
         shipping_total=shipping_total,
         tax_total=tax_total,
-        grand_total=merchandise_total,
+        grand_total=merchandise_total + shipping_total,
         promotion_code=promotion,
         payment_expires_at=None,
         items=lines,
