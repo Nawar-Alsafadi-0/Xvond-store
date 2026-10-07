@@ -6,6 +6,7 @@ import { ProductPurchase } from "@/components/product-purchase";
 import { formatPrice, getProduct } from "@/lib/catalog";
 import { isLocale } from "@/lib/i18n";
 import { absoluteUrl } from "@/lib/urls";
+import styles from "./product-detail.module.css";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
   const { locale, slug } = await params;
@@ -14,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   if (!product) return {};
   return {
     title: product.name[locale],
-    description: product.description[locale] || `${product.name[locale]} — Xvond Smart Store`,
+    description: product.description[locale] || `${product.name[locale]} — Xvond Store`,
     alternates: { canonical: absoluteUrl(`/${locale}/product/${slug}`) },
     openGraph: { title: product.name[locale], images: [product.image] },
   };
@@ -26,7 +27,6 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
   const product = await getProduct(slug);
   if (!product) notFound();
   const ar = locale === "ar";
-  const storeName = "Xvond Smart Store";
   const discount = product.previousPrice
     ? Math.round((1 - product.price / product.previousPrice) * 100)
     : 0;
@@ -45,21 +45,63 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
       url: absoluteUrl(`/${locale}/product/${slug}`),
     },
   };
+
   return (
-    <main className="content-page shell">
-      <Link href={`/${locale}`} className="secondary-button">← {storeName}</Link>
-      <div className="box-feature product-detail" style={{ marginTop: "1.5rem" }}>
-        <div className="hero-visual"><Image src={product.image} alt={product.name[locale]} fill sizes="(max-width: 800px) 100vw, 50vw" /></div>
-        <div className="feature-copy">
-          <p className="eyebrow">{storeName.toUpperCase()}</p>
-          <h1>{product.name[locale]}</h1>
-          <div className="price-line"><strong>{formatPrice(product.price, locale)}</strong>{product.previousPrice && <del>{formatPrice(product.previousPrice, locale)}</del>}</div>
-          {discount > 0 && <small className="saving-label">{ar ? `وفر ${discount}%` : `Save ${discount}%`}</small>}
-          {product.description[locale] && <p>{product.description[locale]}</p>}
-          <p className={product.stock > 0 ? "stock-ready" : "stock-empty"}>{product.stock > 0 ? (ar ? `متوفر — ${product.stock} قطعة` : `In stock — ${product.stock} items`) : (ar ? "غير متوفر حاليًا" : "Currently out of stock")}</p>
-          <ProductPurchase product={product} locale={locale} />
-        </div>
+    <main className={`content-page shell ${styles.page}`}>
+      <div className={styles.backRow}>
+        <Link href={`/${locale}`} className="secondary-button">← {ar ? "المعرض" : "Gallery"}</Link>
+        <small>{ar ? "قطعة من Xvond Store" : "Xvond Store selection"}</small>
       </div>
+
+      <section className={styles.layout}>
+        <div className={styles.media}>
+          <div className={styles.imageWrap}>
+            <Image src={product.image} alt={product.name[locale]} fill priority sizes="(max-width: 860px) 100vw, 55vw" />
+          </div>
+        </div>
+
+        <div className={styles.info}>
+          <div>
+            <p className="eyebrow">XVOND STORE</p>
+            <h1 className={styles.title}>{product.name[locale]}</h1>
+          </div>
+
+          <div className={styles.price}>
+            <strong>{formatPrice(product.price, locale)}</strong>
+            {product.previousPrice && <del>{formatPrice(product.previousPrice, locale)}</del>}
+          </div>
+
+          {discount > 0 && <span className={styles.discount}>{ar ? `وفر ${discount}%` : `Save ${discount}%`}</span>}
+
+          {product.description[locale] && <p className={styles.description}>{product.description[locale]}</p>}
+
+          <div className={styles.stock}>
+            <span className={styles.dot} aria-hidden="true" />
+            <span>{product.stock > 0 ? (ar ? `متوفر الآن — ${product.stock} قطعة` : `Available now — ${product.stock} in stock`) : (ar ? "نفدت الكمية حالياً" : "Currently out of stock")}</span>
+          </div>
+
+          <div className={styles.buyBox}>
+            <ProductPurchase product={product} locale={locale} />
+            <p className={styles.note}>{ar ? "السعر النهائي ورسوم التوصيل يظهران قبل تأكيد الطلب. الدفع حالياً كاش عند الاستلام." : "Your final total and delivery fee are shown before order confirmation. Payment is currently cash on delivery."}</p>
+          </div>
+
+          <div className={styles.promises}>
+            <div className={styles.promise}>
+              <strong>{ar ? "توصيل من طرفنا" : "Delivered by us"}</strong>
+              <span>{ar ? "فريق المتجر يتولى التوصيل مباشرة." : "Handled directly by the store team."}</span>
+            </div>
+            <div className={styles.promise}>
+              <strong>{ar ? "موقع دقيق" : "Exact location"}</strong>
+              <span>{ar ? "تحدد موقعك أثناء إتمام الطلب." : "Set your exact delivery location at checkout."}</span>
+            </div>
+            <div className={styles.promise}>
+              <strong>{ar ? "تتبع الطلب" : "Order tracking"}</strong>
+              <span>{ar ? "تابع الطلب من حسابك حتى التسليم." : "Track your order from your account until delivery."}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
     </main>
   );

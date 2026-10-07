@@ -72,6 +72,15 @@ type Delivery = { governorate: string; city: string; addressLine: string };
 
 const emptyDelivery: Delivery = { governorate: "", city: "", addressLine: "" };
 
+async function errorDetail(response: Response) {
+  try {
+    const payload = await response.json() as { detail?: unknown };
+    return typeof payload.detail === "string" ? payload.detail : "";
+  } catch {
+    return "";
+  }
+}
+
 export function CheckoutView({ locale }: { locale: Locale }) {
   const { cart, clearCart } = useCommerce();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -125,6 +134,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
 
   async function updateQuote(governorate: string) {
     setQuote(null);
+    setError("");
     if (!governorate || !checkoutItems.length || checkoutItems.some((item) => !item.variant_id)) return;
     setQuoteLoading(true);
     try {
@@ -133,7 +143,13 @@ export function CheckoutView({ locale }: { locale: Locale }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: checkoutItems, governorate }),
       });
-      setQuote(response.ok ? await response.json() as Quote : null);
+      if (response.ok) {
+        setQuote(await response.json() as Quote);
+      } else if (response.status === 409) {
+        setError(ar ? "تغيّر مخزون إحدى القطع أو نفدت الكمية. ارجع للسلة وحدّث الكمية قبل المتابعة." : "One of the items changed stock or sold out. Return to the cart and update the quantity before continuing.");
+      } else {
+        setQuote(null);
+      }
     } catch {
       setQuote(null);
     } finally {
@@ -234,11 +250,19 @@ export function CheckoutView({ locale }: { locale: Locale }) {
         return;
       }
       if (response.status === 409) {
-        setError(ar ? "رقم الهاتف مستخدم بحساب آخر." : "This phone number belongs to another account.");
+        const detail = (await errorDetail(response)).toLowerCase();
+        const stockProblem = detail.includes("stock") || detail.includes("unavailable");
+        setError(stockProblem
+          ? (ar ? "تغيّر مخزون إحدى القطع أو نفدت الكمية قبل تأكيد الطلب. عدّل السلة ثم حاول مجدداً." : "One of the items changed stock or sold out before confirmation. Update your cart and try again.")
+          : (ar ? "رقم الهاتف مستخدم بحساب آخر." : "This phone number belongs to another account."));
         return;
       }
       if (response.status === 422) {
-        setError(ar ? "تعذر التوصيل للعنوان المحدد. راجع بيانات العنوان والموقع." : "We cannot deliver to this address yet. Check the address and location.");
+        const detail = (await errorDetail(response)).toLowerCase();
+        const productProblem = detail.includes("variant") || detail.includes("product");
+        setError(productProblem
+          ? (ar ? "تغيّر أحد خيارات المنتج. ارجع للقطعة واختر الخيار المتوفر من جديد." : "A product option changed. Return to the product and select an available option again.")
+          : (ar ? "تعذر التوصيل للعنوان المحدد. راجع بيانات العنوان والموقع." : "We cannot deliver to this address yet. Check the address and location."));
         return;
       }
       if (!response.ok) throw new Error("order_failed");
@@ -280,8 +304,9 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           <p>{ar ? "طلبك وصل إلى لوحة المتجر وهو الآن بانتظار التأكيد والتجهيز." : "Your order is now in the store dashboard and waiting for confirmation."}</p>
           <p>{ar ? "الدفع عند الاستلام" : "Cash on delivery"} · {formatPrice(Number(placedOrder.grand_total), locale)}</p>
           <div style={{ display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
-            <Link className="primary-button" href={`/${locale}/account`}>{ar ? "عرض طلباتي" : "View my orders"}</Link>
-            <Link className="secondary-button" href={`/${locale}`}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link>
+            <Link className="primary-button" href={`/${locale}/track-order?order=${encodeURIComponent(placedOrder.order_number)}`}>{ar ? "تتبع الطلب" : "Track order"}</Link>
+            <Link className="secondary-button" href={`/${locale}/account`}>{ar ? "عرض طلباتي" : "View my orders"}</Link>
+            <Link className="text-button" href={`/${locale}`}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link>
           </div>
         </div>
       </main>
