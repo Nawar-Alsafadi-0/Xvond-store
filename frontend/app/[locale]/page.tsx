@@ -2,137 +2,146 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BoltIcon, CubeIcon, GiftIcon, PuzzlePieceIcon, ShieldCheckIcon, SparklesIcon, TruckIcon } from "@heroicons/react/24/outline";
+import { ArrowLongRightIcon, ShieldCheckIcon, SparklesIcon, TruckIcon } from "@heroicons/react/24/outline";
 import { ProductCard } from "@/components/product-card";
-import { getCategories, getProducts } from "@/lib/catalog";
+import { getProducts } from "@/lib/catalog";
 import { isLocale } from "@/lib/i18n";
 import { absoluteUrl } from "@/lib/urls";
-import styles from "./store-channel.module.css";
-
-const icons = {
-  electronics: BoltIcon,
-  women: SparklesIcon,
-  kids: PuzzlePieceIcon,
-  automotive: TruckIcon,
-  "luxury-gifts": GiftIcon,
-  "xvond-box": CubeIcon,
-};
-
-const categoryArtwork: Record<string, string> = {
-  electronics: "/category-art/electronics.svg",
-  women: "/category-art/women.svg",
-  kids: "/category-art/kids.svg",
-  automotive: "/category-art/automotive.svg",
-  "luxury-gifts": "/category-art/luxury-gifts.svg",
-  "xvond-box": "/category-art/xvond-box.svg",
-};
+import styles from "./curated-home.module.css";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
+
   return {
-    title: { absolute: "Xvond Smart Store" },
+    title: { absolute: "Xvond Store — Curated Finds" },
     description: locale === "ar"
-      ? "تقنية مختارة لحياتك اليومية. اكتشف التقنية والإكسسوارات، للنساء، للأطفال، للسيارة، هدايا مميزة وXvond Box."
-      : "Selected tech for everyday life. Explore tech and accessories, women, kids, car accessories, gift ideas and Xvond Box.",
-    alternates: { canonical: absoluteUrl(`/${locale}`), languages: { "ar-OM": absoluteUrl("/ar"), "en-OM": absoluteUrl("/en") } },
+      ? "مجموعة صغيرة ومتجددة من القطع المختارة بعناية. اكتشف ما هو موجود الآن في Xvond Store."
+      : "A small, changing collection of carefully selected finds. Discover what is available now at Xvond Store.",
+    alternates: {
+      canonical: absoluteUrl(`/${locale}`),
+      languages: { "ar-OM": absoluteUrl("/ar"), "en-OM": absoluteUrl("/en") },
+    },
   };
 }
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+
   const ar = locale === "ar";
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-  const [categories, products] = await Promise.all([getCategories(), getProducts({ sort: "newest", limit: 12 })]);
+  const products = await getProducts({ sort: "newest", limit: 24 });
+
+  const badgeFor = (index: number, stock: number) => {
+    if (stock === 1) return ar ? "قطعة واحدة" : "One piece";
+    if (index < 3) return ar ? "وصل حديثاً" : "New find";
+    return ar ? "مختارة" : "Handpicked";
+  };
 
   return (
     <main className={styles.page}>
-      <section
-        className={styles.heroBanner}
-        aria-labelledby="hero-title"
-      >
+      <section className={styles.hero} aria-labelledby="hero-title">
         <Image
           src={`${basePath}/assets/hero-no-text.png`}
           alt=""
           fill
           priority
           sizes="100vw"
-          className={styles.heroBannerImage}
+          className={styles.heroImage}
         />
-        <div className={styles.bannerCopy} dir={ar ? "rtl" : "ltr"}>
-          <p className={styles.bannerEyebrow}>{ar ? "اختيارات ذكية. لحياة أجمل." : "SMARTER CHOICES. BETTER LIVING."}</p>
-          <h1 id="hero-title" className={styles.bannerTitle}>
-            <span className={styles.bannerTitleLead}>{ar ? "منتجات تفهمك." : "PRODUCTS THAT GET YOU."}</span>
-            <span>{ar ? "وتفاصيل تشبهك." : "DETAILS THAT DEFINE YOU."}</span>
+
+        <div className={styles.heroCopy} dir={ar ? "rtl" : "ltr"}>
+          <p className={styles.eyebrow}>{ar ? "XVOND / قطع مختارة" : "XVOND / CURATED FINDS"}</p>
+          <h1 id="hero-title" className={styles.heroTitle}>
+            {ar ? "مو متجر كل شيء." : "NOT A STORE OF EVERYTHING."}
+            <span>{ar ? "كل قطعة هون إلها سبب." : "EVERY PIECE IS HERE FOR A REASON."}</span>
           </h1>
-          <p className={styles.bannerDescription}>{ar
-            ? "اكتشف تقنية مختارة ومنتجات ذكية تضيف ليومك راحة، ولحياتك أسلوبًا."
-            : "Discover thoughtfully selected tech and smart essentials that bring ease to your day and style to your life."}</p>
-          <ul className={styles.bannerBenefits}>
-            <li><TruckIcon aria-hidden="true" /><span>{ar ? "توصيل سريع" : "Fast delivery"}</span></li>
-            <li><SparklesIcon aria-hidden="true" /><span>{ar ? "جودة مختارة" : "Selected quality"}</span></li>
-            <li><ShieldCheckIcon aria-hidden="true" /><span>{ar ? "تسوّق ودفع آمن" : "Secure shopping & payment"}</span></li>
-            <li><BoltIcon aria-hidden="true" /><span>{ar ? "منتجات ذكية" : "Smart products"}</span></li>
-            <li><CubeIcon aria-hidden="true" /><span>{ar ? "أسلوب حياة عصري" : "Modern lifestyle"}</span></li>
-            <li><GiftIcon aria-hidden="true" /><span>{ar ? "حياة أكثر سهولة" : "Everyday made easier"}</span></li>
+          <p className={styles.heroDescription}>
+            {ar
+              ? "مجموعة صغيرة ومتغيّرة من الأشياء التي لفتتنا فعلًا. ما منعبّي رفوف لمجرد التعبئة؛ منضيف القطعة لما تستحق تكون هون."
+              : "A small, changing collection of things that genuinely caught our attention. We do not fill shelves for the sake of it — a piece appears here when it earns its place."}
+          </p>
+
+          <div className={styles.heroActions}>
+            <Link href="#collection" className={styles.primaryCta}>
+              {ar ? "شوف القطع الموجودة" : "See what is here"}
+              <ArrowLongRightIcon width={18} aria-hidden="true" />
+            </Link>
+            <Link href={`/${locale}/search`} className={styles.secondaryCta}>
+              {ar ? "عم تدور على شي معيّن؟" : "Looking for something?"}
+            </Link>
+          </div>
+
+          <ul className={styles.heroNotes}>
+            <li><SparklesIcon aria-hidden="true" /><span>{ar ? "اختيار قطعة بقطعة" : "Chosen piece by piece"}</span></li>
+            <li><TruckIcon aria-hidden="true" /><span>{ar ? "توصيل داخل عُمان" : "Delivery in Oman"}</span></li>
+            <li><ShieldCheckIcon aria-hidden="true" /><span>{ar ? "تسوّق ودفع آمن" : "Secure shopping"}</span></li>
           </ul>
         </div>
       </section>
 
-      <section id="categories" className={styles.categoriesSection} aria-labelledby="categories-title">
-        <div className={styles.sectionHeading}>
-          <h2 id="categories-title">{ar ? "حسب الفئات" : "Shop by Category"}</h2>
-          <Link href={`/${locale}/search`}>{ar ? "استكشف كل الفئات" : "Explore All Categories"} →</Link>
+      <section className={styles.editorial} aria-labelledby="store-idea-title">
+        <div className={styles.editorialIntro}>
+          <p>{ar ? "فكرة المتجر" : "THE STORE IDEA"}</p>
+          <h2 id="store-idea-title">
+            {ar ? "تدخل لتكتشف شو موجود اليوم، مو لتضيع بين ألف قسم." : "Come in to discover what is here today — not to get lost in a thousand departments."}
+          </h2>
         </div>
-        <div className={styles.categoryRail}>
-          {categories.map((category) => {
-            const categoryProduct = products.find((product) => product.category === category.slug && !product.image.includes("product-placeholder.svg"));
-            const Icon = icons[category.slug as keyof typeof icons] ?? BoltIcon;
-            const artwork = `${basePath}${categoryArtwork[category.slug] ?? "/category-art/electronics.svg"}`;
-            return (
-              <Link key={category.slug} href={`/${locale}/category/${category.slug}`} className={styles.categoryTile}>
-                <span className={styles.categoryVisual}>
-                  <Image
-                    src={categoryProduct?.image ?? artwork}
-                    alt={category.label[locale]}
-                    fill
-                    sizes="(max-width: 640px) 90vw, (max-width: 980px) 45vw, 16vw"
-                    className={styles.categoryImage}
-                  />
-                  <span className={styles.categoryShade} aria-hidden="true" />
-                  <span className={styles.categoryCopy} style={{ display: "flex", alignItems: "center", gap: ".42rem" }}>
-                    <Icon style={{ gridRow: 1, flexShrink: 0 }} />
-                    <strong style={{ flex: 1 }}>{category.label[locale]}</strong>
-                    <b aria-hidden="true" style={{ gridRow: 1, marginInlineStart: "auto" }}>›</b>
-                  </span>
-                </span>
-              </Link>
-            );
-          })}
+
+        <div className={styles.editorialPoints}>
+          <div className={styles.editorialPoint}>
+            <strong>{ar ? "مجموعة صغيرة" : "Small collection"}</strong>
+            <span>{ar ? "الموجود قدّامك هو المجموعة الحالية، بدون أقسام فاضية أو حشو." : "What you see is the current collection, without empty departments or filler."}</span>
+          </div>
+          <div className={styles.editorialPoint}>
+            <strong>{ar ? "منوّعة عن قصد" : "Mixed on purpose"}</strong>
+            <span>{ar ? "تقنية، قطعة للبيت، هدية أو شيء غريب — المعيار إنه يستحق العرض." : "Tech, home, gifts or something unexpected — the rule is simply that it deserves a place here."}</span>
+          </div>
+          <div className={styles.editorialPoint}>
+            <strong>{ar ? "بتتغيّر باستمرار" : "Always changing"}</strong>
+            <span>{ar ? "منضيف ونبدّل القطع مع الوقت، فكل زيارة ممكن تلاقي فيها شيء جديد." : "Pieces are added and rotated over time, so the store can feel different on every visit."}</span>
+          </div>
         </div>
       </section>
 
-      <section className={styles.productsSection}>
-        <div className={styles.productsHeading}>
-          <h2>{ar ? "أحدث المنتجات" : "Featured Products"}</h2>
-          <Link href={`/${locale}/new-arrivals`}>{ar ? "عرض كل المنتجات" : "View All Products"} →</Link>
+      <section id="collection" className={styles.collection} aria-labelledby="collection-title">
+        <div className={styles.collectionHeading}>
+          <div>
+            <p>{ar ? "الموجود حالياً" : "AVAILABLE NOW"}</p>
+            <h2 id="collection-title">{ar ? "المجموعة الحالية" : "The Current Collection"}</h2>
+          </div>
+          <small>
+            {ar
+              ? "كل القطع المنشورة حالياً بمكان واحد. ما في داعي تعرف بأي تصنيف لازم تدور."
+              : "Every published piece in one place. No need to decide which category it belongs to before you browse."}
+          </small>
         </div>
-        {products.length
-          ? <div className={styles.productsGrid}>{products.map((product) => <ProductCard key={product.id} product={product} locale={locale} />)}</div>
-          : <p className={styles.emptyState}>{ar ? "لا توجد منتجات منشورة حاليًا." : "No published products yet."}</p>}
+
+        {products.length ? (
+          <div className={styles.collectionGrid}>
+            {products.map((product, index) => (
+              <div className={styles.item} key={product.id}>
+                <span className={styles.findTag}>{badgeFor(index, product.stock)}</span>
+                <ProductCard product={product} locale={locale} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.emptyState}>
+            {ar ? "المجموعة الجديدة قيد التجهيز. ارجع قريباً." : "The next collection is being prepared. Check back soon."}
+          </p>
+        )}
       </section>
 
-      <section className={styles.boxFeature}>
-        <div className={styles.boxArt}>
-          <Image src={`${basePath}/category-art/xvond-box.svg`} alt="" fill sizes="360px" />
-        </div>
-        <div className={styles.boxCopy}>
-          <p className={styles.xvondMark}>XVOND BOX</p>
-          <h2>{ar ? "اختيارات متناسقة في بوكس واحد" : "Complementary finds in one box"}</h2>
-          <p>{ar ? "بوكسات تجمع منتجات مختارة حول فكرة أو استخدام محدد، ضمن تجربة Xvond Smart Store." : "Boxes of complementary products built around a theme or use, curated for the Xvond Smart Store experience."}</p>
-          <Link href={`/${locale}/category/xvond-box`} className={styles.boxLink}>{ar ? "اكتشف Xvond Box" : "Explore Xvond Box"}</Link>
-        </div>
+      <section className={styles.closing}>
+        <p>{ar ? "مو كتالوج لا نهائي" : "NOT AN ENDLESS CATALOGUE"}</p>
+        <h2>{ar ? "لما نلاقي قطعة تستحق، منضيفها." : "When we find something worth keeping, it joins the collection."}</h2>
+        <span>
+          {ar
+            ? "Xvond Store رح يكبر مع الوقت، لكن الفكرة بتضل نفسها: عدد أقل، اختيار أحسن، وتصفّح ممتع مثل محل تدخل عليه لتشوف شو وصل جديد."
+            : "Xvond Store will grow over time, but the idea stays the same: fewer things, better choices, and the feeling of walking into a shop to see what just arrived."}
+        </span>
       </section>
     </main>
   );
