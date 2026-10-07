@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.accounts import CurrentCustomer
 from app.api.orders import calculate_quote, new_order_number, selected_variant
 from app.core.database import get_session
-from app.models.commerce import Customer, Order, OrderItem
+from app.models.commerce import Address, Customer, Order, OrderItem
 from app.schemas.orders import CheckoutItem, OrderCreated
 from app.services.email import queue_order_event
 from app.services.pricing import included_vat
@@ -41,6 +42,63 @@ class ManualCheckoutCreate(BaseModel):
     customer: ManualCustomer
     items: list[CheckoutItem] = Field(min_length=1, max_length=100)
     payment_method: Literal["cash_on_delivery"] = "cash_on_delivery"
+    address_id: uuid.UUID | None = None
+    save_address: bool = True
+    address_label: str = Field(default="home", min_length=1, max_length=80)
+
+
+async def persist_delivery_address(
+    payload: ManualCheckoutCreate,
+    customer: Customer,
+    session: AsyncSession,
+) -> None:
+    selected: Address | None = None
+    if payload.address_id is not None:
+        selected = await session.scalar(
+            select(Address).where(
+                Address.id == payload.address_id,
+                Address.customer_id == customer.id,
+            )
+        )
+        if selected is None:
+            raise HTTPException(status_code=422, detail="Saved address does not belong to this account")
+
+    if selected is not None:
+        selected.governorate = payload.customer.governorate
+        selected.city = payload.customer.city.strip()
+        selected.address_line = payload.customer.addressLine.strip()
+        selected.latitude = Decimal(str(payload.customer.latitude))
+        selected.longitude = Decimal(str(payload.customer.longitude))
+        return
+
+    if not payload.save_address:
+        return
+
+    existing = await session.scalar(
+        select(Address).where(
+            Address.customer_id == customer.id,
+            Address.governorate == payload.customer.governorate,
+            Address.city == payload.customer.city.strip(),
+            Address.address_line == payload.customer.addressLine.strip(),
+        )
+    )
+    if existing is not None:
+        existing.latitude = Decimal(str(payload.customer.latitude))
+        existing.longitude = Decimal(str(payload.customer.longitude))
+        return
+
+    session.add(
+        Address(
+            customer_id=customer.id,
+            label=payload.address_label.strip(),
+            country_code="OM",
+            governorate=payload.customer.governorate,
+            city=payload.customer.city.strip(),
+            address_line=payload.customer.addressLine.strip(),
+            latitude=Decimal(str(payload.customer.latitude)),
+            longitude=Decimal(str(payload.customer.longitude)),
+        )
+    )
 
 
 @router.post("", response_model=OrderCreated, status_code=status.HTTP_201_CREATED)
@@ -68,6 +126,7 @@ async def create_manual_order(
 
     customer.full_name = payload.customer.fullName.strip()
     customer.phone = phone
+    await persist_delivery_address(payload, customer, session)
 
     lines: list[OrderItem] = []
     for requested in payload.items:

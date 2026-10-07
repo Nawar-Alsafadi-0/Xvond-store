@@ -217,7 +217,7 @@ async def me(customer: CurrentCustomer) -> ProfileRead:
 
 
 @router.get("/account/addresses")
-async def addresses(customer: CurrentCustomer, session: Session) -> list[dict[str, str | None]]:
+async def addresses(customer: CurrentCustomer, session: Session) -> list[dict[str, object]]:
     result = await session.scalars(
         select(Address)
         .where(Address.customer_id == customer.id)
@@ -231,6 +231,8 @@ async def addresses(customer: CurrentCustomer, session: Session) -> list[dict[st
             "city": item.city,
             "address_line": item.address_line,
             "postal_code": item.postal_code,
+            "latitude": float(item.latitude) if item.latitude is not None else None,
+            "longitude": float(item.longitude) if item.longitude is not None else None,
         }
         for item in result
     ]

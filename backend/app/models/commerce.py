@@ -99,6 +99,8 @@ class Address(UUIDMixin, TimestampMixin, Base):
     city: Mapped[str] = mapped_column(String(120))
     address_line: Mapped[str] = mapped_column(String(300))
     postal_code: Mapped[str | None] = mapped_column(String(20))
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
 
 
 class Order(UUIDMixin, TimestampMixin, Base):
