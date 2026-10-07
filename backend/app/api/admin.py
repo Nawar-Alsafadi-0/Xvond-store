@@ -14,6 +14,8 @@ from app.models.commerce import (
     Customer,
     Discount,
     Order,
+    OrderStatus,
+    PaymentStatus,
     Product,
     ProductVariant,
     ReturnRequest,
@@ -207,10 +209,16 @@ async def update_order(order_id: uuid.UUID, payload: OrderStatusUpdate, session:
     )
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
-    if payload.status == "cancelled":
+    if payload.status == OrderStatus.cancelled:
         await release_order_inventory(session, order)
     for key, value in payload.model_dump(exclude_none=True).items():
         setattr(order, key, value)
+    if (
+        payload.status == OrderStatus.delivered
+        and order.payment_method == "cash_on_delivery"
+        and payload.payment_status is None
+    ):
+        order.payment_status = PaymentStatus.paid
     if order.customer_id is not None:
         customer = await session.get(Customer, order.customer_id)
         if customer is not None:
@@ -226,7 +234,12 @@ async def list_customers(session: Session) -> list[dict[str, str]]:
         select(Customer).order_by(Customer.created_at.desc()).limit(500)
     )
     return [
-        {"id": str(item.id), "name": item.full_name, "email": item.email, "phone": item.phone or ""}
+        {
+            "id": str(item.id),
+            "name": item.full_name,
+            "email": item.email,
+            "phone": item.phone or "",
+        }
         for item in customers
     ]
 
@@ -271,7 +284,9 @@ async def list_coupons(session: Session) -> list[dict[str, object]]:
             "code": item.code,
             "discount_type": item.discount_type,
             "value": str(item.value),
-            "minimum_order_amount": str(item.minimum_order_amount) if item.minimum_order_amount is not None else None,
+            "minimum_order_amount": (
+                str(item.minimum_order_amount) if item.minimum_order_amount is not None else None
+            ),
             "usage_limit": item.usage_limit,
             "usage_count": item.usage_count,
             "starts_at": item.starts_at,
