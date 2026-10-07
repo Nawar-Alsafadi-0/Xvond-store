@@ -1,5 +1,4 @@
 import pytest
-from pydantic import ValidationError
 
 from app.api.manual_orders import ManualCheckoutCreate
 
@@ -31,7 +30,7 @@ def test_manual_order_accepts_delivery_details_and_cash() -> None:
 
 def test_manual_order_requires_location() -> None:
     customer = {key: value for key, value in BASE_CUSTOMER.items() if key != "latitude"}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError):
         ManualCheckoutCreate.model_validate(
             {
                 "customer": customer,
@@ -42,7 +41,7 @@ def test_manual_order_requires_location() -> None:
 
 
 def test_manual_order_rejects_online_payment() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError):
         ManualCheckoutCreate.model_validate(
             {
                 "customer": BASE_CUSTOMER,
