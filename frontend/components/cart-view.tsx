@@ -16,9 +16,9 @@ export function CartView({ locale }: { locale: Locale }) {
 
   return (
     <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND SMART STORE</p><h1>{ar ? "سلة التسوق" : "Shopping cart"}</h1>
+      <p className="eyebrow">XVOND STORE</p><h1>{ar ? "سلة الطلب" : "Your cart"}</h1>
       {cart.length === 0 ? (
-        <div className="empty-card"><p>{ar ? "سلتك فارغة حاليًا." : "Your cart is currently empty."}</p><Link className="primary-button" href={continueHref}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link></div>
+        <div className="empty-card"><p>{ar ? "السلة فارغة حالياً." : "Your cart is empty."}</p><Link className="primary-button" href={continueHref}>{ar ? "العودة للمعرض" : "Back to the gallery"}</Link></div>
       ) : (
         <div className="cart-layout">
           <div className="cart-lines">
@@ -39,7 +39,7 @@ export function CartView({ locale }: { locale: Locale }) {
               );
             })}
           </div>
-          <aside className="order-summary"><h2>{ar ? "ملخص الطلب" : "Order summary"}</h2><div><span>{ar ? "المجموع الفرعي" : "Subtotal"}</span><strong>{formatPrice(subtotal, locale)}</strong></div><p>{ar ? "يتم تحديد التوصيل والخصومات في الخطوة التالية." : "Delivery and discounts are calculated in the next step."}</p><Link className="primary-button" href={checkoutHref}>{ar ? "إتمام الطلب" : "Checkout"}</Link></aside>
+          <aside className="order-summary"><h2>{ar ? "ملخص الطلب" : "Order summary"}</h2><div><span>{ar ? "المجموع" : "Total"}</span><strong>{formatPrice(subtotal, locale)}</strong></div><p>{ar ? "الدفع كاش فقط. بعد تسجيل الطلب نؤكد معك التوصيل على واتساب." : "Cash only. After placing the order, delivery is confirmed with you on WhatsApp."}</p><Link className="primary-button" href={checkoutHref}>{ar ? "متابعة الطلب" : "Continue order"}</Link></aside>
         </div>
       )}
     </main>

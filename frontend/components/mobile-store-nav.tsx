@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HeartIcon, HomeIcon, Squares2X2Icon, UserCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
+import { HeartIcon, HomeIcon, UserCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import type { Locale } from "@/lib/i18n";
 import { useCommerce } from "./commerce-provider";
 
@@ -15,8 +15,7 @@ export function MobileStoreNav({ locale }: { locale: Locale }) {
 
   const homeHref = `/${locale}`;
   const items = [
-    { href: homeHref, label: ar ? "الرئيسية" : "Home", icon: HomeIcon },
-    { href: `/${locale}#categories`, label: ar ? "الأقسام" : "Categories", icon: Squares2X2Icon },
+    { href: homeHref, label: ar ? "المعرض" : "Gallery", icon: HomeIcon },
     { href: `/${locale}/wishlist`, label: ar ? "المفضلة" : "Wishlist", icon: HeartIcon },
     { href: `/${locale}/account`, label: ar ? "حسابي" : "Account", icon: UserCircleIcon },
     { href: `/${locale}/cart`, label: ar ? "السلة" : "Cart", icon: ShoppingBagIcon, count: cartCount },
@@ -25,11 +24,7 @@ export function MobileStoreNav({ locale }: { locale: Locale }) {
   return (
     <nav className="mobile-store-nav" aria-label={ar ? "تنقل المتجر" : "Store navigation"}>
       {items.map((item, index) => {
-        const active = index === 0
-          ? pathname === homeHref
-          : index === 1
-            ? pathname.includes(`/category/`)
-            : pathname.startsWith(item.href.split("?")[0]);
+        const active = index === 0 ? pathname === homeHref : pathname.startsWith(item.href.split("?")[0]);
         const Icon = item.icon;
         return <Link key={`${item.href}-${index}`} href={item.href} className={active ? "active" : ""}><span className="mobile-nav-icon"><Icon />{item.count ? <b>{item.count}</b> : null}</span><small>{item.label}</small></Link>;
       })}

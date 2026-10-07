@@ -8,6 +8,7 @@ from app.api import (
     courier,
     external_auth,
     facebook_auth,
+    manual_orders,
     orders,
     payments,
     phone_auth,
@@ -30,5 +31,6 @@ api_router.include_router(admin_order_details.router)
 api_router.include_router(shipping_admin.router)
 api_router.include_router(readiness_admin.router)
 api_router.include_router(orders.router)
+api_router.include_router(manual_orders.router)
 api_router.include_router(payments.router)
 api_router.include_router(courier.router)

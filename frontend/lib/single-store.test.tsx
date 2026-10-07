@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { getCategories, STORE_CATEGORIES } from "./catalog";
+import { getCategories } from "./catalog";
 import HomePage from "@/app/[locale]/page";
 import SearchPage from "@/app/[locale]/search/page";
 import NewArrivalsPage from "@/app/[locale]/new-arrivals/page";
@@ -31,13 +31,14 @@ describe("single Smart Store", () => {
     expect(categories.find((c) => c.slug === "women")).toMatchObject({ id: "live-women", label: { en: "For Women" } });
   });
 
-  it.each(["ar", "en"])("opens %s directly as a store with every department and mixed products", async (locale) => {
+  it.each(["ar", "en"])("opens %s directly as a product gallery without category navigation", async (locale) => {
     mockCatalog();
     const html = renderToStaticMarkup(await HomePage({ params: Promise.resolve({ locale }) }));
-    for (const category of STORE_CATEGORIES) expect(html).toContain(`/${locale}/category/${category.slug}`);
     for (const product of products) expect(html).toContain(product.slug);
-    expect(html).not.toMatch(/Lifestyle|Choose Your Store|اختر متجرك/);
-    expect(html).toContain(`/${locale}/new-arrivals`);
+    expect(html).not.toContain(`/${locale}/category/`);
+    expect(html).not.toContain(`/${locale}/new-arrivals`);
+    expect(html).not.toMatch(/Lifestyle|Choose Your Store|اختر متجرك|وصل حديث|New Arrival|Handpicked/);
+    expect(html).toContain(locale === "ar" ? "المعرض" : "The Gallery");
   });
 
   it.each([undefined, "lifestyle", "smart"])("searches all departments with legacy store=%s", async (store) => {
