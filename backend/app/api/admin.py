@@ -14,6 +14,7 @@ from app.models.commerce import (
     Customer,
     Discount,
     Order,
+    PaymentStatus,
     Product,
     ProductVariant,
     ReturnRequest,
@@ -209,8 +210,15 @@ async def update_order(order_id: uuid.UUID, payload: OrderStatusUpdate, session:
         raise HTTPException(status_code=404, detail="Order not found")
     if payload.status == "cancelled":
         await release_order_inventory(session, order)
-    for key, value in payload.model_dump(exclude_none=True).items():
+    values = payload.model_dump(exclude_none=True)
+    for key, value in values.items():
         setattr(order, key, value)
+    if (
+        payload.status == "delivered"
+        and order.payment_method == "cash_on_delivery"
+        and payload.payment_status is None
+    ):
+        order.payment_status = PaymentStatus.paid
     if order.customer_id is not None:
         customer = await session.get(Customer, order.customer_id)
         if customer is not None:
