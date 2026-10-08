@@ -12,14 +12,14 @@ export function StoreFooter({ locale }: { locale: Locale }) {
 
   if (pathname.startsWith(`/${locale}/admin`)) return null;
 
-  const storeName = "Xvond Smart Store";
+  const storeName = "XVOND VAULT";
   const shopHref = `/${locale}`;
 
   return (
     <footer className="footer">
       <div className="footer-brand">
         <StoreLogo size={120} />
-        <div><strong>{storeName}</strong><p>{ar ? "تقنية مختارة لحياتك اليومية" : "Selected tech for everyday life"}</p></div>
+        <div><strong>{storeName}</strong><p>{ar ? "مختارات مميزة. حضور مختلف." : "Curated pieces. Distinct presence."}</p></div>
       </div>
       <div className="footer-links">
         <Link href={shopHref}>{ar ? "المتجر" : "Store"}</Link>
@@ -27,7 +27,7 @@ export function StoreFooter({ locale }: { locale: Locale }) {
         <Link href={`/${locale}/terms`}>{ar ? "شروط الاستخدام" : "Terms"}</Link>
         <Link href={`/${locale}/returns`}>{ar ? "الاسترجاع والتبديل" : "Returns & Exchanges"}</Link>
       </div>
-      <p className="copyright">© {new Date().getFullYear()} Xvond Smart Store</p>
+      <p className="copyright">© {new Date().getFullYear()} XVOND VAULT</p>
       <p className="footer-credit" dir="ltr">Powerd by nawar</p>
     </footer>
   );

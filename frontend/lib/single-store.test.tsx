@@ -23,7 +23,7 @@ function mockCatalog() {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("single Smart Store", () => {
+describe("single XVOND VAULT storefront", () => {
   it("uses the agreed department names even with the old live catalog labels", async () => {
     mockCatalog();
     const categories = await getCategories();
@@ -38,7 +38,8 @@ describe("single Smart Store", () => {
     expect(html).not.toContain(`/${locale}/category/`);
     expect(html).not.toContain(`/${locale}/new-arrivals`);
     expect(html).not.toMatch(/Lifestyle|Choose Your Store|اختر متجرك|وصل حديث|New Arrival|Handpicked/);
-    expect(html).toContain(locale === "ar" ? "المعرض" : "The Gallery");
+    expect(html).toContain("XVOND VAULT");
+    expect(html).toContain(locale === "ar" ? "المختارات" : "The Selection");
   });
 
   it.each([undefined, "lifestyle", "smart"])("searches all departments with legacy store=%s", async (store) => {
