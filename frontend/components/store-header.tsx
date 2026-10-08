@@ -15,10 +15,11 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
 
 function StoreBrand({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="brand brand-logo" aria-label={label} style={{ minWidth: 0 }}>
-      <span aria-hidden="true" style={{ width: "190px", height: "72px", display: "grid", placeItems: "center", flex: "0 0 auto", overflow: "hidden", background: "transparent", border: 0, filter: "drop-shadow(0 0 14px rgba(22,140,255,.32))" }}>
-        <StoreLogo size={210} priority style={{ width: "190px", height: "auto", maxHeight: "72px", objectFit: "contain", filter: "brightness(1.08) contrast(1.1) saturate(1.12)" }} />
+    <Link href={href} className="brand brand-logo" aria-label={label} style={{ minWidth: 0, display: "flex", alignItems: "center", gap: ".45rem" }}>
+      <span aria-hidden="true" style={{ width: "155px", height: "72px", display: "grid", placeItems: "center", flex: "0 0 auto", overflow: "hidden", background: "transparent", border: 0, filter: "drop-shadow(0 0 14px rgba(22,140,255,.32))" }}>
+        <StoreLogo size={190} priority style={{ width: "155px", height: "auto", maxHeight: "72px", objectFit: "contain", filter: "brightness(1.08) contrast(1.1) saturate(1.12)" }} />
       </span>
+      <span aria-hidden="true" style={{ fontSize: ".67rem", letterSpacing: ".28em", fontWeight: 850, opacity: .9, whiteSpace: "nowrap" }}>VAULT</span>
     </Link>
   );
 }
@@ -52,8 +53,8 @@ export function StoreHeader({ locale }: { locale: Locale }) {
 
   if (admin) return null;
 
-  const storeName = "Xvond Store";
-  const searchPlaceholder = ar ? "ابحث في القطع المعروضة..." : "Search the gallery...";
+  const storeName = "XVOND VAULT";
+  const searchPlaceholder = ar ? "ابحث في المختارات..." : "Search the selection...";
   const accountHref = `/${locale}/account`;
   const wishlistHref = `/${locale}/wishlist`;
   const cartHref = `/${locale}/cart`;
