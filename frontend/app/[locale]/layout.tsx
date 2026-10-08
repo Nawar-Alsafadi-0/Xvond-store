@@ -15,7 +15,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const organization = {
-    "@context": "https://schema.org", "@type": "OnlineStore", name: "Xvond Smart Store",
+    "@context": "https://schema.org", "@type": "OnlineStore", name: "XVOND VAULT",
     url: absoluteUrl(`/${locale}`), parentOrganization: { "@type": "Organization", name: "Xvond", url: "https://xvond.com" },
     areaServed: { "@type": "Country", name: "Oman" }
   };
