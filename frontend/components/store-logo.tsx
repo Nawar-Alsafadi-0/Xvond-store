@@ -14,7 +14,7 @@ export function StoreLogo({ size = 96, priority = false, className = "", style }
   return (
     <Image
       src={`${basePath}/assets/logo.png`}
-      alt="Xvond Smart Store"
+      alt="XVOND VAULT"
       width={size}
       height={size}
       sizes={`${size}px`}
