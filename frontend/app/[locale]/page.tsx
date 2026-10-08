@@ -10,10 +10,10 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   return {
-    title: { absolute: "Xvond Store" },
+    title: { absolute: "XVOND VAULT" },
     description: locale === "ar"
-      ? "شاهد القطع المتوفرة حالياً في Xvond Store."
-      : "Browse the pieces currently available at Xvond Store.",
+      ? "اكتشف المختارات المتوفرة حالياً في XVOND VAULT."
+      : "Discover the pieces currently available at XVOND VAULT.",
     alternates: {
       canonical: absoluteUrl(`/${locale}`),
       languages: { "ar-OM": absoluteUrl("/ar"), "en-OM": absoluteUrl("/en") },
@@ -30,9 +30,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   return (
     <main className={styles.page}>
       <header className={styles.intro} dir={ar ? "rtl" : "ltr"}>
-        <p>XVOND STORE</p>
-        <h1>{ar ? "المعرض" : "The Gallery"}</h1>
-        <span>{ar ? "القطع المتوفرة حالياً. تصفّح واختر القطعة التي تعجبك." : "The pieces available right now. Browse and choose what catches your eye."}</span>
+        <p>XVOND VAULT</p>
+        <h1>{ar ? "المختارات" : "The Selection"}</h1>
+        <span>{ar ? "قطع مختارة ومتجددة بكميات محدودة. إذا لفتتك قطعة، لا تفترض أنها ستبقى." : "A rotating selection of distinctive pieces in limited quantities. If something catches your eye, do not assume it will stay."}</span>
       </header>
 
       <section className={styles.gallery} aria-label={ar ? "المنتجات المتوفرة" : "Available products"}>
