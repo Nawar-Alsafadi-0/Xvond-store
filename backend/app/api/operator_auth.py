@@ -10,7 +10,7 @@ from app.schemas.auth import LoginRequest
 router = APIRouter(tags=["authentication"])
 
 
-def set_admin_session_cookie(response: Response, token: str) -> None:
+def set_operator_session_cookie(response: Response, token: str) -> None:
     settings = get_settings()
     response.set_cookie(
         SESSION_COOKIE,
@@ -23,35 +23,24 @@ def set_admin_session_cookie(response: Response, token: str) -> None:
     )
 
 
-@router.post("/auth/admin/login")
 @router.post("/auth/operator/login")
-async def admin_login(payload: LoginRequest, response: Response) -> dict[str, str]:
+async def operator_login(payload: LoginRequest, response: Response) -> dict[str, str]:
     settings = get_settings()
-    email = payload.email.lower()
-
-    owner_valid = secrets.compare_digest(email, settings.admin_email.lower())
-    owner_valid &= secrets.compare_digest(payload.password, settings.admin_password)
-    if owner_valid:
-        set_admin_session_cookie(response, create_session(settings.admin_email, "admin"))
-        return {"role": "admin", "email": settings.admin_email}
-
-    if settings.operator_email and settings.operator_password:
-        operator_valid = secrets.compare_digest(email, settings.operator_email.lower())
-        operator_valid &= secrets.compare_digest(payload.password, settings.operator_password)
-        if operator_valid:
-            set_admin_session_cookie(response, create_session(settings.operator_email, "operator"))
-            return {"role": "operator", "email": settings.operator_email}
-
-    raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not settings.operator_email or not settings.operator_password:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    valid = secrets.compare_digest(payload.email.lower(), settings.operator_email.lower())
+    valid &= secrets.compare_digest(payload.password, settings.operator_password)
+    if not valid:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    set_operator_session_cookie(response, create_session(settings.operator_email, "operator"))
+    return {"role": "operator", "email": settings.operator_email}
 
 
-@router.get("/auth/admin/me")
 @router.get("/auth/operator/me")
-async def admin_me(
+async def operator_me(
     session_cookie: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
 ) -> dict[str, str]:
     payload = decode_session(session_cookie)
-    role = str(payload.get("role") or "")
-    if role not in {"admin", "operator"}:
-        raise HTTPException(status_code=401, detail="Admin authentication required")
-    return {"role": role, "email": str(payload["sub"])}
+    if payload.get("role") != "operator":
+        raise HTTPException(status_code=401, detail="Operator authentication required")
+    return {"role": "operator", "email": str(payload["sub"])}
