@@ -1,5 +1,6 @@
 import asyncio
 import os
+from decimal import Decimal
 
 import httpx
 
@@ -17,12 +18,46 @@ async def run() -> None:
         await require_ok(client, "/health")
         await require_ok(client, "/ready")
         categories = await require_ok(client, "/api/v1/catalog/categories")
-        products = await require_ok(client, "/api/v1/catalog/products?limit=1")
+        products = await require_ok(client, "/api/v1/catalog/products?in_stock=true&limit=10")
 
         if not categories.json():
             raise RuntimeError("Catalog categories are empty")
-        if not products.json():
-            raise RuntimeError("No live product is available in the production catalog")
+        live_products = products.json()
+        if not live_products:
+            raise RuntimeError("No in-stock product is available in the production catalog")
+
+        quotable = next(
+            (
+                (product, variant)
+                for product in live_products
+                for variant in product.get("variants", [])
+                if int(variant.get("stock_quantity", 0)) > 0
+            ),
+            None,
+        )
+        if quotable is None:
+            raise RuntimeError("No in-stock product variant is available for a checkout quote")
+        product, variant = quotable
+        quote_response = await client.post(
+            "/api/v1/orders/quote",
+            json={
+                "governorate": "muscat",
+                "items": [
+                    {
+                        "product_slug": product["slug"],
+                        "variant_id": variant["id"],
+                        "quantity": 1,
+                    }
+                ],
+            },
+        )
+        quote_response.raise_for_status()
+        quote = quote_response.json()
+        if not quote.get("shipping_available"):
+            raise RuntimeError("Muscat delivery is not available in production")
+        if Decimal(str(quote.get("shipping_total"))) != Decimal("0.000"):
+            raise RuntimeError("Production checkout is not returning free delivery for Muscat")
+        print("OK  Muscat checkout quote returns free delivery")
 
         non_oman_order = await client.post(
             "/api/v1/orders",
