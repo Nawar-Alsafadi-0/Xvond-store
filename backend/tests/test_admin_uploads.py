@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from app.api.admin_uploads import detect_image_extension
+from app.api.admin_uploads import build_product_media_url, detect_image_extension
 
 
 def test_detects_supported_product_images() -> None:
@@ -14,3 +14,21 @@ def test_rejects_non_image_upload() -> None:
     with pytest.raises(HTTPException) as exc:
         detect_image_extension(b"this is not an image")
     assert exc.value.status_code == 415
+
+
+def test_product_media_url_uses_public_api_subpath() -> None:
+    assert build_product_media_url(
+        request_base_url="http://127.0.0.1:8000/",
+        api_prefix="/api/v1",
+        public_api_url="https://xvond.com/store-api/v1",
+        filename="product.jpg",
+    ) == "https://xvond.com/store-api/v1/media/products/product.jpg"
+
+
+def test_product_media_url_falls_back_to_request_origin() -> None:
+    assert build_product_media_url(
+        request_base_url="http://localhost:8000/",
+        api_prefix="/api/v1",
+        public_api_url=None,
+        filename="product.webp",
+    ) == "http://localhost:8000/api/v1/media/products/product.webp"

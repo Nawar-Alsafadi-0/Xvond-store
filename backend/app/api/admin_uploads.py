@@ -30,6 +30,20 @@ def detect_image_extension(content: bytes) -> str:
     )
 
 
+def build_product_media_url(
+    *,
+    request_base_url: str,
+    api_prefix: str,
+    public_api_url: str | None,
+    filename: str,
+) -> str:
+    if public_api_url:
+        api_root = public_api_url.rstrip("/")
+    else:
+        api_root = f"{request_base_url.rstrip('/')}{api_prefix}"
+    return f"{api_root}/media/products/{filename}"
+
+
 @router.post("/product-image", status_code=status.HTTP_201_CREATED)
 async def upload_product_image(
     request: Request,
@@ -51,6 +65,10 @@ async def upload_product_image(
     destination = directory / filename
     await asyncio.to_thread(destination.write_bytes, content)
 
-    base_url = str(request.base_url).rstrip("/")
-    url = f"{base_url}{settings.api_prefix}/media/products/{filename}"
+    url = build_product_media_url(
+        request_base_url=str(request.base_url),
+        api_prefix=settings.api_prefix,
+        public_api_url=settings.public_api_url,
+        filename=filename,
+    )
     return {"url": url, "size": len(content)}

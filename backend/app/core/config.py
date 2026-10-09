@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     session_hours: int = Field(default=12, ge=1, le=168)
     pending_order_hold_minutes: int = Field(default=30, ge=5, le=180)
     frontend_url: str = "http://localhost:3000"
+    public_api_url: str | None = None
     media_root: str = "./media"
     email_from: str = "Xvond Store <no-reply@xvond.com>"
     smtp_host: str | None = None
@@ -114,6 +115,8 @@ class Settings(BaseSettings):
             raise ValueError("Production SMTP configuration is required")
         if not self.frontend_url.startswith("https://"):
             raise ValueError("Production FRONTEND_URL must use HTTPS")
+        if not self.public_api_url or not self.public_api_url.startswith("https://"):
+            raise ValueError("Production PUBLIC_API_URL must use HTTPS")
         origins = self.cors_origin_list
         if not origins or "*" in origins or any(not origin.startswith("https://") for origin in origins):
             raise ValueError("Production CORS_ORIGINS must contain explicit HTTPS origins only")
