@@ -42,7 +42,10 @@ async def test_cod_order_delivery_and_cancel_restore_inventory() -> None:
             price=Decimal("12.500"),
             stock_quantity=5,
         )
-        customer = Customer(full_name="E2E Customer")
+        customer = Customer(
+            full_name="E2E Customer",
+            email=f"e2e-{suffix}@example.com",
+        )
         session.add_all([
             category,
             product,
