@@ -101,9 +101,7 @@ def operator_route_allowed(method: str, path: str, api_prefix: str = "/api/v1") 
         "/uploads/product-image",
     }:
         return True
-    if method == "PATCH" and relative.startswith(
-        ("/products/", "/variants/", "/inventory/", "/discounts/", "/coupons/")
-    ):
+    if method == "PATCH" and relative.startswith(("/discounts/", "/coupons/")):
         return True
     return method == "DELETE" and relative.startswith(
         ("/products/", "/discounts/", "/coupons/")
