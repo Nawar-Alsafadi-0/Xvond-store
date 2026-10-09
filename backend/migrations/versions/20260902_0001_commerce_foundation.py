@@ -40,8 +40,6 @@ def upgrade() -> None:
     payment_status = sa.Enum(
         "pending", "authorized", "paid", "failed", "refunded", name="paymentstatus"
     )
-    order_status.create(op.get_bind())
-    payment_status.create(op.get_bind())
 
     op.create_table(
         "categories",
