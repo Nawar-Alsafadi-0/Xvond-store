@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { safeReturnPath } from "@/lib/safe-return-path";
 import { MultiAuthOptions } from "./multi-auth-options";
 
 type Profile = { id: string; full_name: string; email: string | null; phone?: string | null };
@@ -18,9 +20,11 @@ type IdentifyResult = {
 type SessionResult = { authenticated: boolean; profile?: Profile | null };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const AUTH_RETURN_KEY = "xvond_auth_return_to";
 
-export function AccountView({ locale }: { locale: Locale }) {
+export function AccountView({ locale, returnTo = null }: { locale: Locale; returnTo?: string | null }) {
   const ar = locale === "ar";
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -65,6 +69,15 @@ export function AccountView({ locale }: { locale: Locale }) {
   useEffect(() => {
     queueMicrotask(() => void load());
   }, [load]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const stored = typeof window !== "undefined" ? window.sessionStorage.getItem(AUTH_RETURN_KEY) : null;
+    const target = returnTo || safeReturnPath(stored, locale);
+    if (!target) return;
+    window.sessionStorage.removeItem(AUTH_RETURN_KEY);
+    router.replace(target);
+  }, [locale, profile, returnTo, router]);
 
   function resetAuth() {
     setStage("identifier");
@@ -186,6 +199,7 @@ export function AccountView({ locale }: { locale: Locale }) {
 
   async function logout() {
     await request("/auth/logout", { method: "POST" });
+    window.sessionStorage.removeItem(AUTH_RETURN_KEY);
     setProfile(null);
     setAddresses([]);
     setOrders([]);
@@ -211,6 +225,7 @@ export function AccountView({ locale }: { locale: Locale }) {
       <div>
         <p className="eyebrow">XVOND MEMBERS</p>
         <h1>{ar ? "تسجيل الدخول أو إنشاء حساب" : "Sign in or create an account"}</h1>
+        {returnTo && <p className="coupon-message">{ar ? "بعد تسجيل الدخول سنرجعك مباشرة لإكمال طلبك." : "After sign-in, we’ll take you straight back to checkout."}</p>}
         {stage === "identifier" && <form onSubmit={(event) => void identify(event)}>
           <label>
             {ar ? "البريد الإلكتروني أو رقم الهاتف" : "Email or phone number"}
@@ -239,7 +254,7 @@ export function AccountView({ locale }: { locale: Locale }) {
           <button className="text-button" type="button" disabled={busy} onClick={() => void resendPhoneCode()}>{ar ? "إعادة إرسال الرمز" : "Resend code"}</button>
           <button className="text-button" type="button" onClick={resetAuth}>{ar ? "استخدام بريد أو رقم آخر" : "Use another email or phone"}</button>
         </form>}
-        {stage === "identifier" && <MultiAuthOptions locale={locale} />}
+        {stage === "identifier" && <MultiAuthOptions locale={locale} returnTo={returnTo} />}
       </div>
     </main>;
   }
