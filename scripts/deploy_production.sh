@@ -5,12 +5,19 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.production.yml}"
 ENV_FILE="${ENV_FILE:-.env.production}"
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing $ENV_FILE. Copy .env.production.example and replace every placeholder." >&2
+  echo "Missing $ENV_FILE. Copy .env.production.example and replace the required placeholders." >&2
   exit 1
 fi
 
-if grep -Eq 'REPLACE_|development-only|change-me' "$ENV_FILE"; then
-  echo "$ENV_FILE still contains placeholder or development values." >&2
+# Required launch secrets must be real. Optional Tap placeholders are allowed while TAP_ENABLED=false.
+if grep -Eq '^(DATABASE_URL|POSTGRES_PASSWORD|ADMIN_API_TOKEN|ADMIN_PASSWORD|OPERATOR_PASSWORD|SESSION_SECRET|SMTP_PASSWORD)=.*(REPLACE_|development-only|change-me)' "$ENV_FILE"; then
+  echo "$ENV_FILE still contains a required placeholder or development value." >&2
+  exit 1
+fi
+
+if grep -Eq '^TAP_ENABLED=(true|1|yes)$' "$ENV_FILE" && \
+  grep -Eq '^(TAP_SECRET_KEY|TAP_MERCHANT_ID)=.*REPLACE_' "$ENV_FILE"; then
+  echo "Tap is enabled but live Tap credentials have not been configured." >&2
   exit 1
 fi
 
