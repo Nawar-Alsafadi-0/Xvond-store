@@ -83,17 +83,31 @@ def operator_route_allowed(method: str, path: str, api_prefix: str = "/api/v1") 
     relative = path[len(prefix):] or "/"
     method = method.upper()
 
-    if method == "GET" and relative in {"/overview", "/products", "/categories", "/orders", "/discounts", "/coupons"}:
+    if method == "GET" and relative in {
+        "/overview",
+        "/products",
+        "/categories",
+        "/orders",
+        "/discounts",
+        "/coupons",
+    }:
         return True
     if method == "GET" and relative.startswith("/orders/"):
         return True
-    if method == "POST" and relative in {"/products", "/discounts", "/coupons", "/uploads/product-image"}:
+    if method == "POST" and relative in {
+        "/products",
+        "/discounts",
+        "/coupons",
+        "/uploads/product-image",
+    }:
         return True
-    if method == "PATCH" and relative.startswith(("/products/", "/variants/", "/inventory/", "/discounts/", "/coupons/")):
+    if method == "PATCH" and relative.startswith(
+        ("/products/", "/variants/", "/inventory/", "/discounts/", "/coupons/")
+    ):
         return True
-    if method == "DELETE" and relative.startswith(("/products/", "/discounts/", "/coupons/")):
-        return True
-    return False
+    return method == "DELETE" and relative.startswith(
+        ("/products/", "/discounts/", "/coupons/")
+    )
 
 
 async def require_admin(
