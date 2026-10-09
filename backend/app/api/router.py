@@ -10,6 +10,7 @@ from app.api import (
     external_auth,
     facebook_auth,
     manual_orders,
+    operator_auth,
     orders,
     payments,
     phone_auth,
@@ -21,6 +22,7 @@ from app.api import (
 
 api_router = APIRouter()
 api_router.include_router(accounts.router)
+api_router.include_router(operator_auth.router)
 api_router.include_router(session_status.router)
 api_router.include_router(phone_auth.router)
 api_router.include_router(external_auth.router)
