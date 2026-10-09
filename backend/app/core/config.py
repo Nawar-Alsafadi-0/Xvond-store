@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     database_residency_country: str = "OM"
     admin_api_token: str = Field(default="development-only-token-change-me", min_length=24)
     admin_email: str = "admin@xvond.com"
-    admin_password: str = Field(default="development-admin-password", min_length=12)
+    admin_password: str = Field(default="development-admin-password", min_length=8)
+    operator_email: str | None = None
+    operator_password: str | None = Field(default=None, min_length=8)
     session_secret: str = Field(default="development-session-secret-change-me", min_length=32)
     session_hours: int = Field(default=12, ge=1, le=168)
     pending_order_hold_minutes: int = Field(default=30, ge=5, le=180)
@@ -99,6 +101,10 @@ class Settings(BaseSettings):
             "SMTP_USERNAME": placeholder(self.smtp_username or ""),
             "SMTP_PASSWORD": placeholder(self.smtp_password or ""),
         }
+        if self.operator_email or self.operator_password:
+            if not self.operator_email or not self.operator_password:
+                raise ValueError("OPERATOR_EMAIL and OPERATOR_PASSWORD must be configured together")
+            insecure["OPERATOR_PASSWORD"] = placeholder(self.operator_password)
         invalid = [name for name, failed in insecure.items() if failed]
         if invalid:
             raise ValueError(f"Production configuration is unsafe: {', '.join(invalid)}")

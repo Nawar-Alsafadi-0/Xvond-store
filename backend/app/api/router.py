@@ -10,6 +10,7 @@ from app.api import (
     external_auth,
     facebook_auth,
     manual_orders,
+    operator_auth,
     orders,
     payments,
     phone_auth,
@@ -19,7 +20,15 @@ from app.api import (
     shipping_admin,
 )
 
+ROLE_AWARE_ADMIN_PATHS = {"/auth/admin/login", "/auth/admin/me"}
+accounts.router.routes[:] = [
+    route
+    for route in accounts.router.routes
+    if getattr(route, "path", None) not in ROLE_AWARE_ADMIN_PATHS
+]
+
 api_router = APIRouter()
+api_router.include_router(operator_auth.router)
 api_router.include_router(accounts.router)
 api_router.include_router(session_status.router)
 api_router.include_router(phone_auth.router)

@@ -7,7 +7,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Cookie, Header, HTTPException, status
+from fastapi import Cookie, Header, HTTPException, Request, status
 
 from app.core.config import get_settings
 
@@ -76,14 +76,58 @@ def decode_session(token: str | None) -> dict[str, str | int]:
         ) from None
 
 
+def operator_route_allowed(method: str, path: str, api_prefix: str = "/api/v1") -> bool:
+    prefix = f"{api_prefix}/admin"
+    if not path.startswith(prefix):
+        return False
+    relative = path[len(prefix):] or "/"
+    method = method.upper()
+
+    if method == "GET" and relative in {
+        "/overview",
+        "/products",
+        "/categories",
+        "/orders",
+        "/discounts",
+        "/coupons",
+    }:
+        return True
+    if method == "GET" and relative.startswith("/orders/"):
+        return True
+    if method == "POST" and relative in {
+        "/products",
+        "/discounts",
+        "/coupons",
+        "/uploads/product-image",
+    }:
+        return True
+    if method == "PATCH" and relative.startswith(
+        ("/products/", "/variants/", "/inventory/", "/discounts/", "/coupons/")
+    ):
+        return True
+    return method == "DELETE" and relative.startswith(
+        ("/products/", "/discounts/", "/coupons/")
+    )
+
+
 async def require_admin(
+    request: Request,
     session_cookie: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
     authorization: Annotated[str | None, Header()] = None,
 ) -> None:
+    settings = get_settings()
     if session_cookie:
         payload = decode_session(session_cookie)
-        if payload.get("role") == "admin":
+        role = payload.get("role")
+        if role == "admin":
             return
-    expected = f"Bearer {get_settings().admin_api_token}"
+        if role == "operator":
+            if operator_route_allowed(request.method, request.url.path, settings.api_prefix):
+                return
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This operator account does not have permission for this action",
+            )
+    expected = f"Bearer {settings.admin_api_token}"
     if authorization is None or not hmac.compare_digest(authorization, expected):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
