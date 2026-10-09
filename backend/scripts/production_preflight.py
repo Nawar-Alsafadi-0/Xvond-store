@@ -1,5 +1,7 @@
 import asyncio
 import sys
+import tempfile
+from pathlib import Path
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -21,6 +23,18 @@ def migration_head() -> str:
     if head is None:
         raise RuntimeError("Alembic has no migration head")
     return head
+
+
+def media_storage_writable(media_root: str) -> bool:
+    try:
+        root = Path(media_root)
+        root.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(prefix="xvond-preflight-", dir=root, delete=True) as handle:
+            handle.write(b"ok")
+            handle.flush()
+        return True
+    except OSError:
+        return False
 
 
 async def run() -> int:
@@ -64,6 +78,7 @@ async def run() -> int:
         "free_delivery": (paid_shipping_rates or 0) == 0,
         "database_residency": settings.database_residency_country.strip().upper() == "OM",
         "smtp": bool(settings.smtp_host and settings.smtp_username and settings.smtp_password),
+        "product_media": media_storage_writable(settings.media_root),
         "payment": True,
     }
 
@@ -83,6 +98,7 @@ async def run() -> int:
     if unexpected:
         print("unexpected active delivery areas: " + ", ".join(unexpected))
     print(f"paid delivery areas: {paid_shipping_rates or 0}")
+    print(f"product media root: {settings.media_root}")
     print("payment methods: COD enabled" + (" + Tap ready" if tap_ready else " + Tap optional/not ready"))
 
     if failures:
