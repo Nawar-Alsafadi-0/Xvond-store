@@ -224,7 +224,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
       return;
     }
     if (!quote || !quote.shipping_available) {
-      setError(ar ? "اختر محافظة متاحة للتوصيل وانتظر حساب تكلفة التوصيل." : "Choose an available delivery area and wait for the delivery quote.");
+      setError(ar ? "اختر محافظة متاحة للتوصيل وانتظر التحقق من إمكانية التوصيل." : "Choose an available delivery area and wait for delivery availability to be confirmed.");
       return;
     }
 
@@ -282,13 +282,14 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   }
 
   if (!profile) {
+    const checkoutPath = `/${locale}/checkout`;
     return (
       <main className="content-page shell commerce-page">
         <p className="eyebrow">XVOND STORE</p>
         <h1>{ar ? "سجّل الدخول لإكمال الطلب" : "Sign in to place your order"}</h1>
         <div className="empty-card">
-          <p>{ar ? "السلة محفوظة. سجّل الدخول ثم أكمل عنوان التوصيل." : "Your cart is saved. Sign in, then complete the delivery address."}</p>
-          <Link className="primary-button" href={`/${locale}/account`}>{ar ? "تسجيل الدخول أو إنشاء حساب" : "Sign in or create an account"}</Link>
+          <p>{ar ? "السلة محفوظة. بعد تسجيل الدخول سنرجعك مباشرة لإكمال عنوان التوصيل." : "Your cart is saved. After sign-in, we’ll return you directly to checkout."}</p>
+          <Link className="primary-button" href={`/${locale}/account?next=${encodeURIComponent(checkoutPath)}`}>{ar ? "تسجيل الدخول أو إنشاء حساب" : "Sign in or create an account"}</Link>
         </div>
       </main>
     );
@@ -399,10 +400,10 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           <h2>{ar ? "ملخص الطلب" : "Order summary"}</h2>
           {cart.map((line) => <div key={`${line.product.slug}-${line.product.variantId ?? "default"}`}><span>{line.product.name[locale]} × {line.quantity}</span><strong>{formatPrice(line.product.price * line.quantity, locale)}</strong></div>)}
           <div><span>{ar ? "المنتجات" : "Items"}</span><strong>{formatPrice(subtotal, locale)}</strong></div>
-          <div><span>{ar ? "التوصيل" : "Delivery"}</span><strong>{quoteLoading ? "…" : quote ? formatPrice(shipping, locale) : "—"}</strong></div>
+          <div><span>{ar ? "التوصيل" : "Delivery"}</span><strong>{quoteLoading ? "…" : quote ? (shipping === 0 ? (ar ? "مجاني" : "Free") : formatPrice(shipping, locale)) : "—"}</strong></div>
           <div><span>{ar ? "الإجمالي" : "Total"}</span><strong>{formatPrice(finalTotal, locale)}</strong></div>
           {quote?.shipping_available && quote.estimated_days_min != null && quote.estimated_days_max != null && <p>{ar ? `التوصيل المتوقع: ${quote.estimated_days_min}–${quote.estimated_days_max} أيام` : `Estimated delivery: ${quote.estimated_days_min}–${quote.estimated_days_max} days`}</p>}
-          <p>{ar ? "التوصيل يتم بواسطة فريق المتجر مباشرة." : "Delivery is handled directly by the store team."}</p>
+          <p>{ar ? "التوصيل مجاني ويتم بواسطة فريق المتجر مباشرة." : "Free delivery is handled directly by the store team."}</p>
         </aside>
       </div>
     </main>
