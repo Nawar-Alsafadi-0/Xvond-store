@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 
@@ -32,7 +33,7 @@ def detect_image_extension(content: bytes) -> str:
 @router.post("/product-image", status_code=status.HTTP_201_CREATED)
 async def upload_product_image(
     request: Request,
-    image: UploadFile = File(...),
+    image: Annotated[UploadFile, File()],
 ) -> dict[str, str | int]:
     content = await image.read(MAX_PRODUCT_IMAGE_BYTES + 1)
     await image.close()
