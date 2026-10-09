@@ -35,7 +35,7 @@ export function AdminOperations({ locale }: { locale: Locale }) {
   if (!authorized) return <main className="content-page shell"><h1>{ar ? "تشغيل المتجر" : "Store operations"}</h1><p>{ar ? "سجل دخول الإدارة أولًا." : "Sign in to admin first."}</p><Link className="primary-button" href={`/${locale}/admin`}>{ar ? "دخول الإدارة" : "Admin sign in"}</Link></main>;
 
   return <main className="content-page shell commerce-page">
-    <p className="eyebrow">XVOND STORE ADMIN</p>
+    <p className="eyebrow">XVOND VAULT ADMIN</p>
     <h1>{ar ? "تشغيل المتجر" : "Store operations"}</h1>
     <p><Link href={`/${locale}/admin`}>← {ar ? "لوحة التحكم" : "Control center"}</Link></p>
     {message && <p className="admin-message">{message}</p>}
@@ -51,9 +51,11 @@ export function AdminOperations({ locale }: { locale: Locale }) {
     <section style={{ marginTop: "2rem" }}>
       <div className="section-heading"><div><p>OPERATIONS</p><h2>{ar ? "الإدارة اليومية" : "Daily operations"}</h2></div></div>
       <div className="admin-cards">
-        <article><div><strong>{ar ? "المنتجات والمخزون" : "Products & inventory"}</strong><small>{ar ? "إضافة القطع وتعديل السعر والكمية والظهور." : "Add products and manage price, stock and visibility."}</small></div><Link className="primary-button" href={`/${locale}/admin/catalog`}>{ar ? "فتح" : "Open"}</Link></article>
-        <article><div><strong>{ar ? "الطلبات" : "Orders"}</strong><small>{ar ? "تأكيد وتجهيز وإخراج الطلبات للتوصيل." : "Confirm, prepare and send orders out for delivery."}</small></div><Link className="primary-button" href={`/${locale}/admin/orders`}>{ar ? "فتح" : "Open"}</Link></article>
-        <article><div><strong>{ar ? "إعدادات التوصيل" : "Delivery settings"}</strong><small>{ar ? "سعر ومدة التوصيل الداخلي حسب المنطقة." : "Internal delivery price and timing by area."}</small></div><Link className="primary-button" href={`/${locale}/admin/shipping`}>{ar ? "فتح" : "Open"}</Link></article>
+        <article><div><strong>{ar ? "المنتجات والمخزون" : "Products & inventory"}</strong><small>{ar ? "إضافة المنتجات وتعديل السعر والكمية والصورة والظهور." : "Add products and manage price, stock, image and visibility."}</small></div><Link className="primary-button" href={`/${locale}/admin/catalog`}>{ar ? "فتح" : "Open"}</Link></article>
+        <article><div><strong>{ar ? "الطلبات" : "Orders"}</strong><small>{ar ? "تأكيد وتجهيز وإخراج الطلبات للتوصيل وتسجيل التسليم." : "Confirm, prepare, dispatch and complete orders."}</small></div><Link className="primary-button" href={`/${locale}/admin/orders`}>{ar ? "فتح" : "Open"}</Link></article>
+        <article><div><strong>{ar ? "العملاء" : "Customers"}</strong><small>{ar ? "متابعة بيانات العملاء والبحث السريع." : "Review customer records and search quickly."}</small></div><Link className="primary-button" href={`/${locale}/admin/customers`}>{ar ? "فتح" : "Open"}</Link></article>
+        <article><div><strong>{ar ? "الاسترجاعات" : "Returns"}</strong><small>{ar ? "مراجعة طلبات الاسترجاع وتحديث حالتها." : "Review and resolve return requests."}</small></div><Link className="primary-button" href={`/${locale}/admin/returns`}>{ar ? "فتح" : "Open"}</Link></article>
+        <article><div><strong>{ar ? "مناطق التوصيل" : "Delivery areas"}</strong><small>{ar ? "التوصيل مجاني؛ حدد المناطق التي يخدمها الفريق والمدة المتوقعة." : "Delivery is free; set service areas and expected delivery time."}</small></div><Link className="primary-button" href={`/${locale}/admin/shipping`}>{ar ? "فتح" : "Open"}</Link></article>
         <article><div><strong>{ar ? "فحص الجاهزية" : "Launch checks"}</strong><small>{ar ? "تفاصيل المتطلبات قبل الإطلاق." : "Detailed checks before launch."}</small></div><Link className="secondary-button" href={`/${locale}/admin/readiness`}>{ar ? "التفاصيل" : "Details"}</Link></article>
       </div>
     </section>
