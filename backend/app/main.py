@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -10,6 +13,9 @@ from app.core.config import get_settings
 from app.core.database import engine
 
 settings = get_settings()
+media_root = Path(settings.media_root)
+media_root.mkdir(parents=True, exist_ok=True)
+
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
@@ -19,7 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -32,9 +38,18 @@ async def security_headers(request: Request, call_next):
 
     if request.url.path.startswith(f"{settings.api_prefix}/admin") and request.method != "GET":
         content_type = request.headers.get("content-type", "")
-        if request.method in {"POST", "PATCH"} and "application/json" not in content_type:
+        upload_path = f"{settings.api_prefix}/admin/uploads/product-image"
+        multipart_upload = (
+            request.method == "POST"
+            and request.url.path == upload_path
+            and content_type.startswith("multipart/form-data")
+        )
+        if request.method in {"POST", "PATCH", "PUT"} and not (
+            "application/json" in content_type or multipart_upload
+        ):
             return JSONResponse(
-                status_code=415, content={"detail": "Content-Type must be application/json"}
+                status_code=415,
+                content={"detail": "Content-Type must be application/json"},
             )
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -43,7 +58,13 @@ async def security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if settings.app_env == "production":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if request.url.path.startswith((f"{settings.api_prefix}/auth", f"{settings.api_prefix}/account", f"{settings.api_prefix}/admin")):
+    if request.url.path.startswith(
+        (
+            f"{settings.api_prefix}/auth",
+            f"{settings.api_prefix}/account",
+            f"{settings.api_prefix}/admin",
+        )
+    ):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -72,4 +93,9 @@ async def ready() -> dict[str, str]:
     }
 
 
+app.mount(
+    f"{settings.api_prefix}/media",
+    StaticFiles(directory=media_root),
+    name="media",
+)
 app.include_router(api_router, prefix=settings.api_prefix)
