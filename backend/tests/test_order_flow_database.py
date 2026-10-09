@@ -1,3 +1,4 @@
+import os
 import uuid
 from decimal import Decimal
 
@@ -10,6 +11,11 @@ from app.core.database import SessionFactory
 from app.models.commerce import Category, Customer, Product, ProductVariant
 from app.models.shipping import ShippingRate
 from app.schemas.admin import OrderStatusUpdate
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_DATABASE_INTEGRATION") != "1",
+    reason="database integration test requires a migrated PostgreSQL test database",
+)
 
 
 @pytest.mark.asyncio
