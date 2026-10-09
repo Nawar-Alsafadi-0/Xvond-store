@@ -103,11 +103,9 @@ def operator_route_allowed(method: str, path: str, api_prefix: str = "/api/v1") 
         return True
     if method == "PATCH" and relative.startswith(("/discounts/", "/coupons/")):
         return True
-    if method == "DELETE" and relative.startswith(
+    return method == "DELETE" and relative.startswith(
         ("/products/", "/discounts/", "/coupons/")
-    ):
-        return True
-    return False
+    )
 
 
 async def require_admin(
