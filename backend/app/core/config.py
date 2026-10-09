@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     session_hours: int = Field(default=12, ge=1, le=168)
     pending_order_hold_minutes: int = Field(default=30, ge=5, le=180)
     frontend_url: str = "http://localhost:3000"
+    media_root: str = "./media"
     email_from: str = "Xvond Store <no-reply@xvond.com>"
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
