@@ -22,6 +22,13 @@ pytestmark = pytest.mark.skipif(
 async def test_cod_order_delivery_and_cancel_restore_inventory() -> None:
     suffix = uuid.uuid4().hex[:10]
     async with SessionFactory() as session:
+        muscat_rate = await session.scalar(
+            select(ShippingRate).where(ShippingRate.governorate_key == "muscat")
+        )
+        assert muscat_rate is not None
+        assert muscat_rate.is_active is True
+        assert muscat_rate.amount == Decimal("0.000")
+
         category = Category(
             slug=f"e2e-{suffix}",
             name_ar="اختبار",
@@ -46,21 +53,7 @@ async def test_cod_order_delivery_and_cancel_restore_inventory() -> None:
             full_name="E2E Customer",
             email=f"e2e-{suffix}@example.com",
         )
-        session.add_all([
-            category,
-            product,
-            variant,
-            customer,
-            ShippingRate(
-                governorate_key="muscat",
-                name_ar="مسقط",
-                name_en="Muscat",
-                amount=Decimal("3.000"),
-                estimated_days_min=1,
-                estimated_days_max=2,
-                is_active=True,
-            ),
-        ])
+        session.add_all([category, product, variant, customer])
         await session.commit()
         await session.refresh(customer)
         await session.refresh(variant)
@@ -87,6 +80,7 @@ async def test_cod_order_delivery_and_cancel_restore_inventory() -> None:
         assert order.grand_total == Decimal("25.000")
         assert order.status.value == "pending"
         assert order.payment_status.value == "pending"
+        assert "GPS 23.588000,58.382900" in str(order.shipping_address_line)
 
         refreshed_variant = await session.get(ProductVariant, variant.id)
         assert refreshed_variant is not None
