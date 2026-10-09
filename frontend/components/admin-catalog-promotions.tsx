@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -21,6 +21,7 @@ type Product = {
   variants: Variant[];
 };
 type StockFilter = "all" | "available" | "low" | "out" | "hidden";
+type UploadResponse = { url: string; size: number };
 
 function makeSlug(value: string) {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -29,6 +30,73 @@ function makeSlug(value: string) {
 
 function makeSku() {
   return `XV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+function ProductImageField({
+  ar,
+  defaultValue = "",
+  disabled = false,
+}: {
+  ar: boolean;
+  defaultValue?: string;
+  disabled?: boolean;
+}) {
+  const [url, setUrl] = useState(defaultValue);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function upload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("image", file);
+      const response = await fetch(`${apiUrl}/admin/uploads/product-image`, {
+        method: "POST",
+        credentials: "include",
+        body,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(payload?.detail || "upload_failed");
+      }
+      const result = await response.json() as UploadResponse;
+      setUrl(result.url);
+    } catch {
+      setError(ar ? "تعذر رفع الصورة. استخدم JPG أو PNG أو WebP بحجم لا يتجاوز 8MB." : "Image upload failed. Use JPG, PNG or WebP up to 8 MB.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return <div style={{ display: "grid", gap: ".6rem" }}>
+    <input
+      name="primary_image_url"
+      type="url"
+      value={url}
+      onChange={(event) => setUrl(event.target.value)}
+      placeholder={ar ? "رابط الصورة أو ارفع من جهازك" : "Image URL or upload from your device"}
+      disabled={disabled || uploading}
+    />
+    <label className="secondary-button" style={{ width: "fit-content", cursor: disabled ? "default" : "pointer" }}>
+      {uploading ? (ar ? "جارٍ رفع الصورة…" : "Uploading image…") : (ar ? "رفع صورة من الجهاز" : "Upload image")}
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        disabled={disabled || uploading}
+        onChange={(event) => void upload(event)}
+      />
+    </label>
+    {url && <div
+      aria-label={ar ? "معاينة الصورة" : "Image preview"}
+      style={{ width: 120, height: 120, borderRadius: 14, background: `center / cover no-repeat url(${url})` }}
+    />}
+    {error && <small className="form-error">{error}</small>}
+  </div>;
 }
 
 export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
@@ -132,7 +200,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
       setMessage(ar ? "تمت إضافة القطعة." : "Product added.");
       await load();
     } catch {
-      setMessage(ar ? "تعذر إضافة القطعة. راجع السعر أو رابط الصورة." : "Could not add the product. Check price or image URL.");
+      setMessage(ar ? "تعذر إضافة القطعة. راجع بيانات المنتج والسعر والصورة." : "Could not add the product. Check the product details, price and image.");
     } finally { setBusyId(null); }
   }
 
@@ -212,7 +280,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   ];
 
   return <main className="content-page shell commerce-page">
-    <p className="eyebrow">XVOND STORE ADMIN</p>
+    <p className="eyebrow">XVOND VAULT ADMIN</p>
     <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
       <div><h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1><p><Link href={`/${locale}/admin`}>← {ar ? "لوحة التحكم" : "Control center"}</Link></p></div>
       <button className="primary-button" onClick={() => setShowAdd((value) => !value)}>{showAdd ? (ar ? "إغلاق" : "Close") : (ar ? "+ إضافة قطعة" : "+ Add product")}</button>
@@ -235,7 +303,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
         <input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر OMR" : "Price OMR"} required />
         <input name="stock_quantity" type="number" min="0" placeholder={ar ? "الكمية المتوفرة" : "Stock quantity"} required />
         <input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق (اختياري)" : "Previous price (optional)"} />
-        <input name="primary_image_url" type="url" placeholder={ar ? "رابط الصورة" : "Image URL"} />
+        <ProductImageField ar={ar} disabled={busyId === "new"} />
         <textarea name="description_ar" placeholder={ar ? "وصف القطعة (اختياري)" : "Description (optional)"} />
         <textarea name="description_en" placeholder={ar ? "الوصف بالإنجليزية (اختياري)" : "English description (optional)"} />
       </div>
@@ -273,7 +341,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
                 <input name="price" type="number" step="0.001" min="0.001" defaultValue={variant.price} required />
                 <input name="stock_quantity" type="number" min="0" defaultValue={stock} required />
                 <input name="compare_at_price" type="number" step="0.001" min="0.001" defaultValue={variant.compare_at_price || ""} placeholder={ar ? "السعر السابق" : "Previous price"} />
-                <input name="primary_image_url" type="url" defaultValue={product.primary_image_url || ""} placeholder={ar ? "رابط الصورة" : "Image URL"} />
+                <ProductImageField ar={ar} defaultValue={product.primary_image_url || ""} disabled={busyId === product.id} />
                 <textarea name="description_ar" defaultValue={product.description_ar || ""} placeholder={ar ? "الوصف" : "Description"} />
                 <textarea name="description_en" defaultValue={product.description_en || ""} placeholder={ar ? "الوصف بالإنجليزية" : "English description"} />
               </div>
