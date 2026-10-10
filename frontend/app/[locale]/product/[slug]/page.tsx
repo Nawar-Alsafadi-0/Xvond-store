@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   if (!product) return {};
   return {
     title: product.name[locale],
-    description: product.description[locale] || `${product.name[locale]} — Xvond Store`,
+    description: product.description[locale] || `${product.name[locale]} — XVOND VAULT`,
     alternates: { canonical: absoluteUrl(`/${locale}/product/${slug}`) },
     openGraph: { title: product.name[locale], images: [product.image] },
   };
@@ -51,8 +51,7 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
   return (
     <main className={`content-page shell ${styles.page}`}>
       <div className={styles.backRow}>
-        <Link href={`/${locale}`} className="secondary-button">← {ar ? "المعرض" : "Gallery"}</Link>
-        <small>{ar ? "قطعة من Xvond Store" : "Xvond Store selection"}</small>
+        <Link href={`/${locale}`} className="secondary-button">← {ar ? "المتجر" : "Store"}</Link>
       </div>
 
       <section className={styles.layout}>
@@ -71,7 +70,7 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
 
         <div className={styles.info}>
           <div>
-            <p className="eyebrow">XVOND STORE</p>
+            <p className="eyebrow">XVOND VAULT</p>
             <h1 className={styles.title}>{product.name[locale]}</h1>
           </div>
 
@@ -86,27 +85,12 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
 
           <div className={styles.stock}>
             <span className={styles.dot} aria-hidden="true" />
-            <span>{product.stock > 0 ? (ar ? `متوفر الآن — ${product.stock} قطعة` : `Available now — ${product.stock} in stock`) : (ar ? "نفدت الكمية حالياً" : "Currently out of stock")}</span>
+            <span>{product.stock > 0 ? (ar ? "متوفر" : "In stock") : (ar ? "غير متوفر حالياً" : "Currently unavailable")}</span>
           </div>
 
           <div className={styles.buyBox}>
             <ProductPurchase product={product} locale={locale} />
-            <p className={styles.note}>{ar ? "التوصيل مجاني. الدفع حالياً كاش عند الاستلام." : "Delivery is free. Payment is currently cash on delivery."}</p>
-          </div>
-
-          <div className={styles.promises}>
-            <div className={styles.promise}>
-              <strong>{ar ? "توصيل مجاني" : "Free delivery"}</strong>
-              <span>{ar ? "التوصيل من طرف فريق المتجر بدون رسوم." : "Delivered directly by the store team at no extra charge."}</span>
-            </div>
-            <div className={styles.promise}>
-              <strong>{ar ? "موقع دقيق" : "Exact location"}</strong>
-              <span>{ar ? "تحدد موقعك أثناء إتمام الطلب." : "Set your exact delivery location at checkout."}</span>
-            </div>
-            <div className={styles.promise}>
-              <strong>{ar ? "تتبع الطلب" : "Order tracking"}</strong>
-              <span>{ar ? "تابع الطلب من حسابك حتى التسليم." : "Track your order from your account until delivery."}</span>
-            </div>
+            <p className={styles.note}>{ar ? "توصيل مجاني · دفع عند الاستلام" : "Free delivery · Cash on delivery"}</p>
           </div>
         </div>
       </section>
