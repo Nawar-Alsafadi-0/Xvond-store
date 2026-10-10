@@ -22,9 +22,13 @@ def production_settings(**overrides) -> dict[str, object]:
         "admin_password": "strong-admin-password",
         "session_secret": "s" * 64,
         "frontend_url": "https://xvond.com/store",
+        "public_api_url": "https://xvond.com/store-api/v1",
         "smtp_host": "smtp.zoho.com",
         "smtp_username": "support@xvond.com",
         "smtp_password": "strong-smtp-password",
+        "twilio_account_sid": "AC1234567890abcdef",
+        "twilio_auth_token": "twilio-live-secret",
+        "twilio_verify_service_sid": "VA1234567890abcdef",
         "cors_origins": "https://xvond.com",
     }
     values.update(overrides)
@@ -45,9 +49,29 @@ def test_production_rejects_documented_placeholders() -> None:
             admin_password="REPLACE_WITH_STRONG_PASSWORD",
             session_secret="REPLACE_WITH_RANDOM_64_CHARACTERS",
             frontend_url="https://xvond.com/store",
+            public_api_url="https://xvond.com/store-api/v1",
             smtp_host="smtp.zoho.com",
             smtp_username="REPLACE_WITH_ZOHO_MAILBOX",
             smtp_password="REPLACE_WITH_ZOHO_APP_PASSWORD",
+            twilio_account_sid="REPLACE_WITH_TWILIO_ACCOUNT_SID",
+            twilio_auth_token="REPLACE_WITH_TWILIO_AUTH_TOKEN",
+            twilio_verify_service_sid="REPLACE_WITH_TWILIO_VERIFY_SERVICE_SID",
+        )
+
+
+def test_production_accepts_complete_verification_configuration() -> None:
+    settings = Settings(**production_settings())
+    assert settings.phone_auth_enabled is True
+
+
+def test_production_requires_phone_verification_provider() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            **production_settings(
+                twilio_account_sid=None,
+                twilio_auth_token=None,
+                twilio_verify_service_sid=None,
+            )
         )
 
 

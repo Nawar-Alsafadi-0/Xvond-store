@@ -20,7 +20,7 @@ export default async function AccountPage({
   const returnTo = safeReturnPath(requestedNext, locale);
 
   return <>
-    <ProfileDetailsCard locale={locale} />
     <AccountView locale={locale} returnTo={returnTo} />
+    <ProfileDetailsCard locale={locale} />
   </>;
 }

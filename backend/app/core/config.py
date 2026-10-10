@@ -101,6 +101,9 @@ class Settings(BaseSettings):
             ),
             "SMTP_USERNAME": placeholder(self.smtp_username or ""),
             "SMTP_PASSWORD": placeholder(self.smtp_password or ""),
+            "TWILIO_ACCOUNT_SID": placeholder(self.twilio_account_sid or ""),
+            "TWILIO_AUTH_TOKEN": placeholder(self.twilio_auth_token or ""),
+            "TWILIO_VERIFY_SERVICE_SID": placeholder(self.twilio_verify_service_sid or ""),
         }
         if self.operator_email or self.operator_password:
             if not self.operator_email or not self.operator_password:
@@ -113,6 +116,8 @@ class Settings(BaseSettings):
             raise ValueError("Production database residency must be Oman (OM) for the current launch")
         if not all((self.smtp_host, self.smtp_username, self.smtp_password)):
             raise ValueError("Production SMTP configuration is required")
+        if not self.phone_auth_enabled:
+            raise ValueError("Production Twilio Verify configuration is required")
         if not self.frontend_url.startswith("https://"):
             raise ValueError("Production FRONTEND_URL must use HTTPS")
         if not self.public_api_url or not self.public_api_url.startswith("https://"):
