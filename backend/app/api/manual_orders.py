@@ -8,9 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.accounts import CurrentCustomer
+from app.api.external_auth import normalize_oman_phone
 from app.api.orders import calculate_quote, new_order_number, selected_variant
 from app.core.database import get_session
 from app.models.commerce import Address, Customer, Order, OrderItem
+from app.models.integrations import AuthIdentity
 from app.schemas.orders import CheckoutItem, OrderCreated
 from app.services.email import queue_order_event
 from app.services.pricing import included_vat
@@ -107,6 +109,20 @@ async def create_manual_order(
     customer: CurrentCustomer,
     session: Session,
 ) -> Order:
+    if not customer.email or not customer.email_verified:
+        raise HTTPException(status_code=403, detail="email_verification_required")
+
+    phone = normalize_oman_phone(payload.customer.phone)
+    phone_identity = await session.scalar(
+        select(AuthIdentity.id).where(
+            AuthIdentity.customer_id == customer.id,
+            AuthIdentity.provider == "phone",
+            AuthIdentity.subject == phone,
+        )
+    )
+    if not customer.phone or customer.phone != phone or phone_identity is None:
+        raise HTTPException(status_code=403, detail="phone_verification_required")
+
     products, subtotal, discount, promotion, _, rate, shipping_total = await calculate_quote(
         payload.items,
         None,
@@ -117,7 +133,6 @@ async def create_manual_order(
     if rate is None:
         raise HTTPException(status_code=422, detail="Delivery is not available for this governorate")
 
-    phone = payload.customer.phone.strip()
     existing_phone = await session.scalar(
         select(Customer).where(Customer.phone == phone, Customer.id != customer.id)
     )
@@ -125,7 +140,6 @@ async def create_manual_order(
         raise HTTPException(status_code=409, detail="Phone number belongs to another account")
 
     customer.full_name = payload.customer.fullName.strip()
-    customer.phone = phone
     await persist_delivery_address(payload, customer, session)
 
     lines: list[OrderItem] = []
@@ -175,9 +189,7 @@ async def create_manual_order(
         items=lines,
     )
     session.add(order)
-
-    if customer.email:
-        queue_order_event(session, customer.email, order.order_number, "pending")
+    queue_order_event(session, customer.email, order.order_number, "pending")
 
     await session.commit()
     await session.refresh(order)
