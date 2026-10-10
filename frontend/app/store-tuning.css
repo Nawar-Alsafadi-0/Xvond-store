@@ -82,9 +82,9 @@
 .cart-added-toast {
   position: fixed;
   z-index: 200;
-  inset-inline: 50%;
+  left: 50%;
   bottom: 1.4rem;
-  transform: translateX(50%);
+  transform: translateX(-50%);
   min-width: min(360px, calc(100vw - 2rem));
   display: flex;
   align-items: center;
@@ -98,10 +98,6 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, .38), 0 0 28px rgba(22, 140, 255, .18);
   backdrop-filter: blur(16px);
   animation: cart-toast-in .28s ease both;
-}
-
-[dir="ltr"] .cart-added-toast {
-  transform: translateX(-50%);
 }
 
 .cart-added-check {
@@ -171,6 +167,11 @@
   margin-top: .65rem;
   color: var(--muted);
   font-size: .72rem;
+}
+
+.checkout-map-coordinates a {
+  color: var(--cyan);
+  font-weight: 700;
 }
 
 @media (max-width: 820px) {
