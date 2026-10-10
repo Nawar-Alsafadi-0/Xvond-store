@@ -9,6 +9,7 @@ from app.api.admin import update_order
 from app.api.manual_orders import ManualCheckoutCreate, create_manual_order
 from app.core.database import SessionFactory
 from app.models.commerce import Category, Customer, Product, ProductVariant
+from app.models.integrations import AuthIdentity
 from app.models.shipping import ShippingRate
 from app.schemas.admin import OrderStatusUpdate
 
@@ -49,19 +50,32 @@ async def test_cod_order_delivery_and_cancel_restore_inventory() -> None:
             price=Decimal("12.500"),
             stock_quantity=5,
         )
+        verified_phone = "+96890000000"
         customer = Customer(
             full_name="E2E Customer",
             email=f"e2e-{suffix}@example.com",
+            email_verified=True,
+            phone=verified_phone,
         )
         session.add_all([category, product, variant, customer])
         await session.commit()
         await session.refresh(customer)
         await session.refresh(variant)
+        session.add(
+            AuthIdentity(
+                customer_id=customer.id,
+                provider="phone",
+                subject=verified_phone,
+                email=customer.email,
+                phone=verified_phone,
+            )
+        )
+        await session.commit()
 
         payload = ManualCheckoutCreate.model_validate({
             "customer": {
                 "fullName": "E2E Customer",
-                "phone": "+96890000000",
+                "phone": verified_phone,
                 "governorate": "Muscat",
                 "city": "Al Khuwair",
                 "addressLine": "Building 10, Street 20",
