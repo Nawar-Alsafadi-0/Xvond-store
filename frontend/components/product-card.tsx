@@ -9,6 +9,37 @@ import type { Product } from "@/lib/catalog";
 import { formatPrice } from "@/lib/catalog";
 import { useCommerce } from "./commerce-provider";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+function normalizeProductImageSource(source: string): string {
+  try {
+    const imageUrl = new URL(source);
+    const configuredApiUrl = new URL(apiUrl);
+    const mediaMarker = "/media/products/";
+    const mediaIndex = imageUrl.pathname.indexOf(mediaMarker);
+    const localImageHost = imageUrl.hostname === "localhost" || imageUrl.hostname === "127.0.0.1";
+
+    if (mediaIndex >= 0 && localImageHost) {
+      const apiPath = configuredApiUrl.pathname.replace(/\/$/, "");
+      const mediaPath = imageUrl.pathname.slice(mediaIndex);
+      return `${configuredApiUrl.origin}${apiPath}${mediaPath}${imageUrl.search}`;
+    }
+  } catch {
+    // Relative placeholders and already-valid image URLs can be used as-is.
+  }
+
+  return source;
+}
+
+function isLocalImageSource(source: string): boolean {
+  try {
+    const imageUrl = new URL(source);
+    return imageUrl.hostname === "localhost" || imageUrl.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 export function ProductCard({ product, locale }: { product: Product; locale: Locale }) {
   const { addToCart, toggleWishlist, wishlist } = useCommerce();
   const wished = wishlist.includes(product.slug);
@@ -17,11 +48,19 @@ export function ProductCard({ product, locale }: { product: Product; locale: Loc
     : 0;
   const ar = locale === "ar";
   const productHref = `/${locale}/product/${product.slug}`;
+  const imageSource = normalizeProductImageSource(product.image);
 
   return (
     <article className="product-card marketplace-product-card">
       <Link href={productHref} className="product-image-wrap marketplace-product-image">
-        <Image src={product.image} alt={product.name[locale]} fill sizes="(max-width: 640px) 48vw, 20vw" className="product-image" />
+        <Image
+          src={imageSource}
+          alt={product.name[locale]}
+          fill
+          sizes="(max-width: 640px) 48vw, (max-width: 1100px) 24vw, 220px"
+          className="product-image"
+          unoptimized={isLocalImageSource(imageSource)}
+        />
         {discount > 0 && <span className="marketplace-discount">-{discount}%</span>}
         {product.stock < 1 && <span className="marketplace-stock-badge">{ar ? "نفد" : "Sold out"}</span>}
       </Link>
