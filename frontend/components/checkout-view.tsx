@@ -160,7 +160,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
       if (response.ok) {
         setQuote(await response.json() as Quote);
       } else if (response.status === 409) {
-        setError(ar ? "تغيّر مخزون إحدى القطع أو نفدت الكمية. ارجع للسلة وحدّث الكمية قبل المتابعة." : "One of the items changed stock or sold out. Return to the cart and update the quantity before continuing.");
+        setError(ar ? "إحدى القطع لم تعد متوفرة بالكمية المطلوبة. حدّث السلة للمتابعة." : "One of the items is no longer available in the requested quantity. Update your bag to continue.");
       } else {
         setQuote(null);
       }
@@ -199,7 +199,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   function captureLocation() {
     setError("");
     if (!navigator.geolocation) {
-      setError(ar ? "جهازك لا يدعم تحديد الموقع." : "This device does not support location services.");
+      setError(ar ? "تحديد الموقع غير متاح على هذا الجهاز." : "Location is not available on this device.");
       return;
     }
     setLocating(true);
@@ -214,7 +214,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
       },
       () => {
         setLocating(false);
-        setError(ar ? "اسمح للموقع باستخدام GPS ثم حاول مجدداً." : "Allow location access and try again.");
+        setError(ar ? "فعّل إذن الموقع ثم حاول مرة أخرى." : "Allow location access and try again.");
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
     );
@@ -230,19 +230,19 @@ export function CheckoutView({ locale }: { locale: Locale }) {
       longitude: location?.longitude,
     });
     if (!parsed.success || cart.length === 0) {
-      setError(ar ? "أكمل بيانات الاستلام وحدد موقع التوصيل على الخريطة قبل تأكيد الطلب." : "Complete the delivery details and set the delivery location on the map.");
+      setError(ar ? "أكمل بيانات التوصيل وحدد الموقع للمتابعة." : "Complete the delivery details and set the location to continue.");
       return;
     }
     if (!profile?.email_verified || !profile.phone_verified) {
-      setError(ar ? "لازم تأكد البريد ورقم الهاتف قبل الطلب." : "Verify your email and phone before ordering.");
+      setError(ar ? "يرجى إكمال توثيق الحساب قبل الطلب." : "Complete account verification before ordering.");
       return;
     }
     if (checkoutItems.some((item) => !item.variant_id)) {
-      setError(ar ? "أعد اختيار خيار المنتج قبل إتمام الطلب." : "Please reselect the product option before checkout.");
+      setError(ar ? "أعد اختيار خيار المنتج قبل إتمام الشراء." : "Reselect the product option before checkout.");
       return;
     }
     if (!quote || !quote.shipping_available) {
-      setError(ar ? "اختر محافظة متاحة للتوصيل وانتظر التحقق من إمكانية التوصيل." : "Choose an available delivery area and wait for delivery availability to be confirmed.");
+      setError(ar ? "التوصيل غير متاح لهذا العنوان حالياً." : "Delivery is not currently available for this address.");
       return;
     }
 
@@ -264,30 +264,30 @@ export function CheckoutView({ locale }: { locale: Locale }) {
 
       if (response.status === 401) {
         setProfile(null);
-        setError(ar ? "سجّل الدخول أولاً لإكمال الطلب." : "Sign in first to place the order.");
+        setError(ar ? "سجّل الدخول لإكمال الشراء." : "Sign in to complete checkout.");
         return;
       }
       if (response.status === 403) {
         const detail = await errorDetail(response);
         setError(detail === "email_verification_required"
-          ? (ar ? "أكد بريدك الإلكتروني أولاً من رابط التأكيد." : "Verify your email from the verification link first.")
-          : (ar ? "أكد رقم هاتفك برمز OTP أولاً." : "Verify your phone with the OTP code first."));
+          ? (ar ? "يرجى تأكيد البريد الإلكتروني أولاً." : "Verify your email first.")
+          : (ar ? "يرجى تأكيد رقم الهاتف أولاً." : "Verify your phone first."));
         return;
       }
       if (response.status === 409) {
         const detail = (await errorDetail(response)).toLowerCase();
         const stockProblem = detail.includes("stock") || detail.includes("unavailable");
         setError(stockProblem
-          ? (ar ? "تغيّر مخزون إحدى القطع أو نفدت الكمية قبل تأكيد الطلب. عدّل السلة ثم حاول مجدداً." : "One of the items changed stock or sold out before confirmation. Update your cart and try again.")
-          : (ar ? "رقم الهاتف مستخدم بحساب آخر." : "This phone number belongs to another account."));
+          ? (ar ? "إحدى القطع لم تعد متوفرة بالكمية المطلوبة." : "One of the items is no longer available in the requested quantity.")
+          : (ar ? "رقم الهاتف مرتبط بحساب آخر." : "This phone number is linked to another account."));
         return;
       }
       if (response.status === 422) {
         const detail = (await errorDetail(response)).toLowerCase();
         const productProblem = detail.includes("variant") || detail.includes("product");
         setError(productProblem
-          ? (ar ? "تغيّر أحد خيارات المنتج. ارجع للقطعة واختر الخيار المتوفر من جديد." : "A product option changed. Return to the product and select an available option again.")
-          : (ar ? "تعذر التوصيل للعنوان المحدد. راجع بيانات العنوان والموقع." : "We cannot deliver to this address yet. Check the address and location."));
+          ? (ar ? "أحد خيارات المنتج لم يعد متوفراً. اختر خياراً آخر." : "A product option is no longer available. Choose another option.")
+          : (ar ? "تعذر التوصيل إلى العنوان المحدد." : "Delivery is not available for the selected address."));
         return;
       }
       if (!response.ok) throw new Error("order_failed");
@@ -296,23 +296,23 @@ export function CheckoutView({ locale }: { locale: Locale }) {
       setPlacedOrder(order);
       clearCart();
     } catch {
-      setError(ar ? "تعذر تسجيل الطلب الآن. حاول مرة أخرى." : "We could not place the order. Please try again.");
+      setError(ar ? "تعذر إتمام الطلب. حاول مرة أخرى." : "We could not place the order. Try again.");
     } finally {
       setBusy(false);
     }
   }
 
   if (!sessionReady) {
-    return <main className="content-page shell commerce-page"><p>{ar ? "جارٍ التحقق من الحساب…" : "Checking your account…"}</p></main>;
+    return <main className="content-page shell commerce-page"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
   }
 
   if (!profile) {
     const checkoutPath = `/${locale}/checkout`;
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND STORE</p>
-      <h1>{ar ? "سجّل الدخول لإكمال الطلب" : "Sign in to place your order"}</h1>
+      <p className="eyebrow">XVOND VAULT</p>
+      <h1>{ar ? "تسجيل الدخول" : "Sign in"}</h1>
       <div className="empty-card">
-        <p>{ar ? "السلة محفوظة. بعد تسجيل الدخول وتوثيق البريد والهاتف سنرجعك مباشرة لإكمال الطلب." : "Your cart is saved. After sign-in and verification, we’ll return you directly to checkout."}</p>
+        <p>{ar ? "سجّل الدخول لإكمال الشراء." : "Sign in to complete your purchase."}</p>
         <Link className="primary-button" href={`/${locale}/account?next=${encodeURIComponent(checkoutPath)}`}>{ar ? "تسجيل الدخول أو إنشاء حساب" : "Sign in or create an account"}</Link>
       </div>
     </main>;
@@ -322,27 +322,25 @@ export function CheckoutView({ locale }: { locale: Locale }) {
     const checkoutPath = `/${locale}/checkout`;
     return <main className="content-page shell commerce-page">
       <section className="verification-gate">
-        <p className="eyebrow">XVOND SECURITY</p>
-        <h1>{ar ? "كمّل توثيق حسابك" : "Finish verifying your account"}</h1>
-        <p>{!profile.email_verified
-          ? (ar ? "لازم تأكد البريد الإلكتروني قبل أي طلب." : "Verify your email before placing an order.")
-          : (ar ? "البريد موثّق. باقي تأكيد رقم الهاتف برمز OTP." : "Email verified. Now verify your phone with OTP.")}</p>
-        <Link className="primary-button" href={`/${locale}/account?next=${encodeURIComponent(checkoutPath)}`}>{ar ? "متابعة التوثيق" : "Continue verification"}</Link>
+        <p className="eyebrow">XVOND VAULT</p>
+        <h1>{ar ? "تفعيل الحساب" : "Verify your account"}</h1>
+        <p>{ar ? "أكمل التحقق للمتابعة إلى الدفع." : "Complete verification to continue to checkout."}</p>
+        <Link className="primary-button" href={`/${locale}/account?next=${encodeURIComponent(checkoutPath)}`}>{ar ? "متابعة" : "Continue"}</Link>
       </section>
     </main>;
   }
 
   if (placedOrder) {
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND STORE</p>
+      <p className="eyebrow">XVOND VAULT</p>
       <h1>{ar ? "تم استلام طلبك" : "Order received"}</h1>
       <div className="empty-card">
         <strong style={{ fontSize: "1.2rem" }}>{placedOrder.order_number}</strong>
-        <p>{ar ? "طلبك وصل إلى لوحة المتجر وهو الآن بانتظار التأكيد والتجهيز." : "Your order is now in the store dashboard and waiting for confirmation."}</p>
+        <p>{ar ? "يمكنك متابعة حالة الطلب من حسابك." : "You can follow the order status from your account."}</p>
         <p>{ar ? "الدفع عند الاستلام" : "Cash on delivery"} · {formatPrice(Number(placedOrder.grand_total), locale)}</p>
         <div style={{ display: "flex", gap: ".75rem", flexWrap: "wrap" }}>
           <Link className="primary-button" href={`/${locale}/track-order?order=${encodeURIComponent(placedOrder.order_number)}`}>{ar ? "تتبع الطلب" : "Track order"}</Link>
-          <Link className="secondary-button" href={`/${locale}/account`}>{ar ? "عرض طلباتي" : "View my orders"}</Link>
+          <Link className="secondary-button" href={`/${locale}/account`}>{ar ? "طلباتي" : "My orders"}</Link>
           <Link className="text-button" href={`/${locale}`}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link>
         </div>
       </div>
@@ -351,9 +349,9 @@ export function CheckoutView({ locale }: { locale: Locale }) {
 
   if (!cart.length) {
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND STORE</p>
-      <h1>{ar ? "الطلب" : "Order"}</h1>
-      <div className="empty-card"><p>{ar ? "السلة فارغة." : "Your cart is empty."}</p><Link className="primary-button" href={`/${locale}`}>{ar ? "العودة للمعرض" : "Back to the gallery"}</Link></div>
+      <p className="eyebrow">XVOND VAULT</p>
+      <h1>{ar ? "سلة التسوق" : "Shopping bag"}</h1>
+      <div className="empty-card"><p>{ar ? "سلة التسوق فارغة." : "Your bag is empty."}</p><Link className="primary-button" href={`/${locale}`}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link></div>
     </main>;
   }
 
@@ -361,19 +359,19 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   const shipping = quote ? Number(quote.shipping_total) : 0;
 
   return <main className="content-page shell commerce-page">
-    <p className="eyebrow">XVOND STORE</p>
-    <h1>{ar ? "إتمام الطلب" : "Checkout"}</h1>
+    <p className="eyebrow">XVOND VAULT</p>
+    <h1>{ar ? "إتمام الشراء" : "Checkout"}</h1>
     <div className="checkout-layout">
       <form className="checkout-form" action={submit}>
-        <h2>{ar ? "1. بيانات المستلم" : "1. Recipient details"}</h2>
+        <h2>{ar ? "1. بيانات المستلم" : "1. Recipient"}</h2>
         <div className="form-grid">
           <label>{ar ? "الاسم الكامل" : "Full name"}<input name="fullName" autoComplete="name" defaultValue={profile.full_name === "Xvond Member" ? "" : profile.full_name} required /></label>
-          <label>{ar ? "رقم الهاتف الموثّق" : "Verified phone number"}<input name="phone" type="tel" value={profile.phone ?? ""} readOnly aria-readonly="true" required /><small>{ar ? "لتغيير الرقم، غيّره من الحساب وأكده عبر OTP." : "Change it from your account and verify it with OTP."}</small></label>
+          <label>{ar ? "رقم الهاتف" : "Phone number"}<input name="phone" type="tel" value={profile.phone ?? ""} readOnly aria-readonly="true" required /></label>
         </div>
 
         <h2>{ar ? "2. عنوان التوصيل" : "2. Delivery address"}</h2>
         {addresses.length > 0 && <div style={{ display: "grid", gap: ".65rem" }}>
-          <strong>{ar ? "اختر عنواناً محفوظاً" : "Choose a saved address"}</strong>
+          <strong>{ar ? "العناوين المحفوظة" : "Saved addresses"}</strong>
           <div style={{ display: "grid", gap: ".65rem", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}>
             {addresses.map((address) => <button
               key={address.id}
@@ -382,10 +380,10 @@ export function CheckoutView({ locale }: { locale: Locale }) {
               onClick={() => chooseAddress(address)}
               style={{ textAlign: "start", justifyContent: "flex-start", height: "auto" }}
             >
-              <span><strong>{address.label}</strong><br />{address.city} · {address.address_line}{address.latitude == null ? <><br /><small>{ar ? "يحتاج تحديد الموقع" : "Location needed"}</small></> : null}</span>
+              <span><strong>{address.label}</strong><br />{address.city} · {address.address_line}{address.latitude == null ? <><br /><small>{ar ? "حدد الموقع" : "Set location"}</small></> : null}</span>
             </button>)}
           </div>
-          <button className="text-button" type="button" onClick={startNewAddress}>{ar ? "+ إضافة عنوان جديد" : "+ Add a new address"}</button>
+          <button className="text-button" type="button" onClick={startNewAddress}>{ar ? "+ عنوان جديد" : "+ New address"}</button>
         </div>}
 
         {!selectedAddressId && <label>{ar ? "اسم العنوان" : "Address label"}<input value={addressLabel} onChange={(event) => setAddressLabel(event.target.value)} placeholder={ar ? "المنزل، العمل..." : "Home, work..."} /></label>}
@@ -402,36 +400,34 @@ export function CheckoutView({ locale }: { locale: Locale }) {
           </label>
           <label>{ar ? "المدينة / المنطقة" : "City / area"}<input value={delivery.city} onChange={(event) => setDelivery((current) => ({ ...current, city: event.target.value }))} autoComplete="address-level2" placeholder={ar ? "مثال: الخوير" : "Example: Al Khuwair"} required /></label>
         </div>
-        <label>{ar ? "العنوان بالتفصيل" : "Detailed address"}<input value={delivery.addressLine} onChange={(event) => setDelivery((current) => ({ ...current, addressLine: event.target.value }))} autoComplete="street-address" placeholder={ar ? "الشارع، المبنى، رقم الشقة أو أقرب معلم" : "Street, building, apartment or nearest landmark"} required /></label>
+        <label>{ar ? "العنوان" : "Address"}<input value={delivery.addressLine} onChange={(event) => setDelivery((current) => ({ ...current, addressLine: event.target.value }))} autoComplete="street-address" placeholder={ar ? "الشارع، المبنى، رقم الشقة أو أقرب معلم" : "Street, building, apartment or nearest landmark"} required /></label>
 
         <div className="pending-choice">
-          <strong>{ar ? "الموقع الدقيق على الخريطة" : "Exact location on the map"}</strong>
-          <p>{ar ? "حدد موقعك الحالي، وبعدها تأكد من الدبوس على الخريطة قبل إرسال الطلب." : "Use your current location, then confirm the pin on the map before ordering."}</p>
+          <strong>{ar ? "موقع التوصيل" : "Delivery location"}</strong>
           <button className="table-button" type="button" onClick={captureLocation} disabled={locating}>
-            {locating ? (ar ? "جارٍ تحديد الموقع…" : "Getting location…") : location ? (ar ? "تحديث موقعي" : "Update my location") : (ar ? "تحديد موقعي الحالي" : "Use my current location")}
+            {locating ? (ar ? "جارٍ تحديد الموقع…" : "Getting location…") : location ? (ar ? "تحديث الموقع" : "Update location") : (ar ? "تحديد الموقع" : "Set location")}
           </button>
           {location && <>
-            <div className="checkout-map-preview"><iframe title={ar ? "موقع التوصيل على الخريطة" : "Delivery location map"} src={mapEmbedUrl(location)} loading="lazy" referrerPolicy="no-referrer" /></div>
-            <div className="checkout-map-coordinates"><span>GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</span>{location.accuracy ? <span>±{Math.round(location.accuracy)}m</span> : null}<a href={mapPageUrl(location)} target="_blank" rel="noreferrer">{ar ? "فتح الخريطة" : "Open map"}</a></div>
+            <div className="checkout-map-preview"><iframe title={ar ? "موقع التوصيل" : "Delivery location"} src={mapEmbedUrl(location)} loading="lazy" referrerPolicy="no-referrer" /></div>
+            <div className="checkout-map-coordinates"><a href={mapPageUrl(location)} target="_blank" rel="noreferrer">{ar ? "عرض الخريطة" : "View map"}</a></div>
           </>}
         </div>
 
-        <div className="pending-choice"><strong>{ar ? "3. الدفع" : "3. Payment"}</strong><p>{ar ? "الدفع كاش عند الاستلام." : "Cash on delivery."}</p></div>
+        <div className="pending-choice"><strong>{ar ? "3. الدفع" : "3. Payment"}</strong><p>{ar ? "عند الاستلام" : "Cash on delivery"}</p></div>
 
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="primary-button" disabled={busy || quoteLoading || !quote?.shipping_available || !location}>
-          {busy ? (ar ? "جارٍ تسجيل الطلب…" : "Placing order…") : (ar ? "تأكيد الطلب" : "Place order")}
+          {busy ? (ar ? "جارٍ التأكيد…" : "Confirming…") : (ar ? "تأكيد الطلب" : "Place order")}
         </button>
       </form>
 
       <aside className="order-summary">
-        <h2>{ar ? "ملخص الطلب" : "Order summary"}</h2>
+        <h2>{ar ? "الملخص" : "Summary"}</h2>
         {cart.map((line) => <div key={`${line.product.slug}-${line.product.variantId ?? "default"}`}><span>{line.product.name[locale]} × {line.quantity}</span><strong>{formatPrice(line.product.price * line.quantity, locale)}</strong></div>)}
         <div><span>{ar ? "المنتجات" : "Items"}</span><strong>{formatPrice(subtotal, locale)}</strong></div>
         <div><span>{ar ? "التوصيل" : "Delivery"}</span><strong>{quoteLoading ? "…" : quote ? (shipping === 0 ? (ar ? "مجاني" : "Free") : formatPrice(shipping, locale)) : "—"}</strong></div>
         <div><span>{ar ? "الإجمالي" : "Total"}</span><strong>{formatPrice(finalTotal, locale)}</strong></div>
         {quote?.shipping_available && quote.estimated_days_min != null && quote.estimated_days_max != null && <p>{ar ? `التوصيل المتوقع: ${quote.estimated_days_min}–${quote.estimated_days_max} أيام` : `Estimated delivery: ${quote.estimated_days_min}–${quote.estimated_days_max} days`}</p>}
-        <p>{ar ? "التوصيل مجاني ويتم بواسطة فريق المتجر مباشرة." : "Free delivery is handled directly by the store team."}</p>
       </aside>
     </div>
   </main>;
