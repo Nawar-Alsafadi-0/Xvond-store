@@ -12,7 +12,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
   gap: clamp(1.5rem, 4vw, 4.5rem);
   align-items: start;
 }
@@ -25,14 +25,17 @@
 .imageWrap {
   position: relative;
   overflow: hidden;
-  min-height: min(72vh, 760px);
+  aspect-ratio: 1 / 1;
+  max-height: 720px;
   border-radius: 28px;
-  background: rgba(127, 127, 127, .08);
+  background: radial-gradient(circle at 50% 45%, rgba(22, 140, 255, .08), transparent 58%), rgba(127, 127, 127, .05);
   border: 1px solid rgba(127, 127, 127, .18);
 }
 
 .imageWrap img {
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  padding: clamp(1rem, 5vw, 3rem);
 }
 
 .info {
@@ -144,7 +147,8 @@
   }
 
   .imageWrap {
-    min-height: min(68vh, 620px);
+    width: min(100%, 640px);
+    margin-inline: auto;
     border-radius: 20px;
   }
 
@@ -162,8 +166,8 @@
     margin-bottom: .75rem;
   }
 
-  .imageWrap {
-    min-height: 58vh;
+  .imageWrap img {
+    padding: 1.1rem;
   }
 
   .promises {
