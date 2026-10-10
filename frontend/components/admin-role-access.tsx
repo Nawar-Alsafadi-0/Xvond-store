@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { AdminCatalogPromotions } from "./admin-catalog-promotions";
+import { AdminHistoryGuard } from "./admin-history-guard";
 import { OperatorCatalog } from "./operator-catalog";
 import { OperatorOrders } from "./operator-orders";
 import { OrderFulfillmentAdmin } from "./order-fulfillment-admin";
@@ -46,8 +47,8 @@ export function AdminCatalogByRole({ locale }: { locale: Locale }) {
   const { role, loading } = useAdminRole();
   const ar = locale === "ar";
   if (loading) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
-  if (role === "operator") return <OperatorCatalog locale={locale} />;
-  if (role === "admin") return <AdminCatalogPromotions locale={locale} />;
+  if (role === "operator") return <AdminHistoryGuard locale={locale}><OperatorCatalog locale={locale} /></AdminHistoryGuard>;
+  if (role === "admin") return <AdminHistoryGuard locale={locale}><AdminCatalogPromotions locale={locale} /></AdminHistoryGuard>;
   return <Unauthorized locale={locale} />;
 }
 
@@ -55,7 +56,7 @@ export function AdminOrdersByRole({ locale }: { locale: Locale }) {
   const { role, loading } = useAdminRole();
   const ar = locale === "ar";
   if (loading) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
-  if (role === "operator") return <OperatorOrders locale={locale} />;
-  if (role === "admin") return <OrderFulfillmentAdmin locale={locale} />;
+  if (role === "operator") return <AdminHistoryGuard locale={locale}><OperatorOrders locale={locale} /></AdminHistoryGuard>;
+  if (role === "admin") return <AdminHistoryGuard locale={locale}><OrderFulfillmentAdmin locale={locale} /></AdminHistoryGuard>;
   return <Unauthorized locale={locale} />;
 }
