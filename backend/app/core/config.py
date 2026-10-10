@@ -113,6 +113,8 @@ class Settings(BaseSettings):
             raise ValueError("Production database residency must be Oman (OM) for the current launch")
         if not all((self.smtp_host, self.smtp_username, self.smtp_password)):
             raise ValueError("Production SMTP configuration is required")
+        if not self.phone_auth_enabled:
+            raise ValueError("Production Twilio Verify configuration is required")
         if not self.frontend_url.startswith("https://"):
             raise ValueError("Production FRONTEND_URL must use HTTPS")
         if not self.public_api_url or not self.public_api_url.startswith("https://"):
