@@ -23,6 +23,10 @@ type Product = {
 type StockFilter = "all" | "available" | "low" | "out" | "hidden";
 type UploadResponse = { url: string; size: number };
 
+type ErrorPayload = {
+  detail?: string | Array<{ msg?: string }>;
+};
+
 function makeSlug(value: string) {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `${normalized || "item"}-${Date.now().toString(36)}`;
@@ -30,6 +34,34 @@ function makeSlug(value: string) {
 
 function makeSku() {
   return `XV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+async function readApiError(response: Response) {
+  const payload = await response.json().catch(() => null) as ErrorPayload | null;
+  if (typeof payload?.detail === "string") return payload.detail;
+  if (Array.isArray(payload?.detail)) {
+    const message = payload.detail.map((item) => item.msg).filter(Boolean).join(" · ");
+    if (message) return message;
+  }
+  return `${response.status} ${response.statusText}`.trim();
+}
+
+function friendlyError(error: unknown, ar: boolean) {
+  const raw = error instanceof Error ? error.message : String(error || "");
+  const lowered = raw.toLowerCase();
+  if (lowered.includes("compare_at_price") || lowered.includes("greater than price")) {
+    return ar ? "السعر السابق لازم يكون أعلى من السعر الحالي، أو اتركه فارغاً." : "Previous price must be higher than the current price, or leave it blank.";
+  }
+  if (lowered.includes("url") || lowered.includes("primary_image_url")) {
+    return ar ? "رابط الصورة غير صالح. ارفع الصورة من الجهاز أو استخدم رابط http/https صحيح." : "The image URL is invalid. Upload an image or use a valid http/https URL.";
+  }
+  if (lowered.includes("category")) {
+    return ar ? "تعذر تجهيز الفئة الداخلية للمتجر. أعد المحاولة بعد تحديث الصفحة." : "The internal store category could not be prepared. Refresh and try again.";
+  }
+  if (lowered.includes("unique") || lowered.includes("duplicate")) {
+    return ar ? "في تعارض ببيانات المنتج. أعد المحاولة وسيتم توليد رمز جديد." : "Product data conflicted with an existing item. Try again to generate a new code.";
+  }
+  return ar ? `تعذر تنفيذ العملية: ${raw || "خطأ غير معروف"}` : `Could not complete the action: ${raw || "Unknown error"}`;
 }
 
 function ProductImageField({
@@ -59,14 +91,14 @@ function ProductImageField({
         credentials: "include",
         body,
       });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(payload?.detail || "upload_failed");
-      }
+      if (!response.ok) throw new Error(await readApiError(response));
       const result = await response.json() as UploadResponse;
       setUrl(result.url);
-    } catch {
-      setError(ar ? "تعذر رفع الصورة. استخدم JPG أو PNG أو WebP بحجم لا يتجاوز 8MB." : "Image upload failed. Use JPG, PNG or WebP up to 8 MB.");
+    } catch (uploadError) {
+      const detail = friendlyError(uploadError, ar);
+      setError(detail.includes("تعذر تنفيذ العملية") || detail.includes("Could not complete")
+        ? (ar ? "تعذر رفع الصورة. استخدم JPG أو PNG أو WebP بحجم لا يتجاوز 8MB." : "Image upload failed. Use JPG, PNG or WebP up to 8 MB.")
+        : detail);
     } finally {
       setUploading(false);
     }
@@ -108,6 +140,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   const [showAdd, setShowAdd] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [imageFieldKey, setImageFieldKey] = useState(0);
 
   const adminFetch = useCallback(async (path: string, options?: RequestInit) => {
     const response = await fetch(`${apiUrl}/admin${path}`, {
@@ -119,7 +152,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
       setAuthorized(false);
       throw new Error("unauthorized");
     }
-    if (!response.ok) throw new Error(await response.text());
+    if (!response.ok) throw new Error(await readApiError(response));
     return response.status === 204 ? null : response.json();
   }, []);
 
@@ -130,7 +163,7 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
       setAuthorized(true);
       setProducts(await adminFetch("/products") as Product[]);
     } catch (error) {
-      if ((error as Error).message !== "unauthorized") setMessage(ar ? "تعذر تحميل المنتجات." : "Could not load products.");
+      if ((error as Error).message !== "unauthorized") setMessage(friendlyError(error, ar));
     }
   }, [adminFetch, ar]);
 
@@ -152,8 +185,16 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
 
   async function internalCategoryId() {
     let categories = await adminFetch("/categories") as Category[];
-    const active = categories.find((item) => item.is_active);
-    if (active) return active.id;
+    const catalog = categories.find((item) => item.slug === "catalog");
+    if (catalog?.is_active) return catalog.id;
+    if (catalog) {
+      await adminFetch(`/categories/${catalog.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: true }),
+      });
+      return catalog.id;
+    }
+
     await adminFetch("/categories", {
       method: "POST",
       body: JSON.stringify({ slug: "catalog", name_ar: "المتجر", name_en: "Store" }),
@@ -168,10 +209,33 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
     event.preventDefault();
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form));
-    const nameAr = String(values.name_ar).trim();
+    const nameAr = String(values.name_ar || "").trim();
     const nameEn = String(values.name_en || "").trim() || nameAr;
+    const price = Number(values.price);
+    const stock = Number(values.stock_quantity);
+    const compareText = String(values.compare_at_price || "").trim();
+    const compare = compareText ? Number(compareText) : null;
+
+    if (nameAr.length < 2) {
+      setMessage(ar ? "اسم القطعة لازم يكون حرفين على الأقل." : "Product name must be at least 2 characters.");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      setMessage(ar ? "أدخل سعراً صحيحاً أكبر من صفر." : "Enter a valid price greater than zero.");
+      return;
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      setMessage(ar ? "الكمية لازم تكون رقماً صحيحاً صفر أو أكثر." : "Stock must be a whole number of zero or more.");
+      return;
+    }
+    if (compare !== null && (!Number.isFinite(compare) || compare <= price)) {
+      setMessage(ar ? "السعر السابق لازم يكون أعلى من السعر الحالي، أو اتركه فارغاً." : "Previous price must be higher than the current price, or leave it blank.");
+      return;
+    }
+
     const sku = makeSku();
-    setBusyId("new"); setMessage("");
+    setBusyId("new");
+    setMessage("");
     try {
       const categoryId = await internalCategoryId();
       await adminFetch("/products", {
@@ -189,33 +253,45 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
             sku,
             title_ar: "أساسي",
             title_en: "Default",
-            price: Number(values.price),
-            compare_at_price: values.compare_at_price ? Number(values.compare_at_price) : null,
-            stock_quantity: Number(values.stock_quantity),
+            price,
+            compare_at_price: compare,
+            stock_quantity: stock,
           },
         }),
       });
       form.reset();
+      setImageFieldKey((value) => value + 1);
       setShowAdd(false);
-      setMessage(ar ? "تمت إضافة القطعة." : "Product added.");
+      setMessage(ar ? "تمت إضافة القطعة بنجاح." : "Product added successfully.");
       await load();
-    } catch {
-      setMessage(ar ? "تعذر إضافة القطعة. راجع بيانات المنتج والسعر والصورة." : "Could not add the product. Check the product details, price and image.");
-    } finally { setBusyId(null); }
+    } catch (error) {
+      setMessage(friendlyError(error, ar));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function saveProduct(product: Product, form: FormData) {
     const variant = product.variants[0];
     if (!variant) return;
-    setBusyId(product.id); setMessage("");
+    const price = Number(form.get("price"));
+    const stock = Number(form.get("stock_quantity"));
+    const compareText = String(form.get("compare_at_price") || "").trim();
+    const compare = compareText ? Number(compareText) : null;
+
+    if (compare !== null && compare <= price) {
+      setMessage(ar ? "السعر السابق لازم يكون أعلى من السعر الحالي، أو اتركه فارغاً." : "Previous price must be higher than the current price, or leave it blank.");
+      return;
+    }
+
+    setBusyId(product.id);
+    setMessage("");
     try {
-      const price = Number(form.get("price"));
-      const compare = String(form.get("compare_at_price") || "").trim();
       await adminFetch(`/products/${product.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          name_ar: String(form.get("name_ar")),
-          name_en: String(form.get("name_en") || form.get("name_ar")),
+          name_ar: String(form.get("name_ar") || "").trim(),
+          name_en: String(form.get("name_en") || form.get("name_ar") || "").trim(),
           description_ar: String(form.get("description_ar") || "").trim() || null,
           description_en: String(form.get("description_en") || "").trim() || null,
           primary_image_url: String(form.get("primary_image_url") || "").trim() || null,
@@ -224,29 +300,33 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
       });
       await adminFetch(`/variants/${variant.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          price,
-          compare_at_price: compare ? Number(compare) : null,
-          stock_quantity: Number(form.get("stock_quantity")),
-        }),
+        body: JSON.stringify({ price, compare_at_price: compare, stock_quantity: stock }),
       });
       setMessage(ar ? "تم حفظ التعديلات." : "Changes saved.");
       await load();
-    } catch {
-      setMessage(ar ? "تعذر حفظ المنتج. إذا وضعت سعراً سابقاً يجب أن يكون أعلى من السعر الحالي." : "Could not save. Compare price must be higher than the current price.");
-    } finally { setBusyId(null); }
+    } catch (error) {
+      setMessage(friendlyError(error, ar));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function setStock(product: Product, quantity: number) {
     const variant = product.variants[0];
     if (!variant) return;
-    setBusyId(product.id); setMessage("");
+    setBusyId(product.id);
+    setMessage("");
     try {
-      await adminFetch(`/variants/${variant.id}`, { method: "PATCH", body: JSON.stringify({ stock_quantity: Math.max(0, quantity) }) });
+      await adminFetch(`/variants/${variant.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ stock_quantity: Math.max(0, quantity) }),
+      });
       await load();
-    } catch {
-      setMessage(ar ? "تعذر تعديل المخزون." : "Could not update stock.");
-    } finally { setBusyId(null); }
+    } catch (error) {
+      setMessage(friendlyError(error, ar));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function changeStock(product: Product, delta: number) {
@@ -256,13 +336,19 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   }
 
   async function toggleVisibility(product: Product) {
-    setBusyId(product.id); setMessage("");
+    setBusyId(product.id);
+    setMessage("");
     try {
-      await adminFetch(`/products/${product.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !product.is_active }) });
+      await adminFetch(`/products/${product.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: !product.is_active }),
+      });
       await load();
-    } catch {
-      setMessage(ar ? "تعذر تغيير حالة المنتج." : "Could not change product visibility.");
-    } finally { setBusyId(null); }
+    } catch (error) {
+      setMessage(friendlyError(error, ar));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   if (authorized === null) return <main className="content-page shell"><p>{ar ? "جارٍ التحميل…" : "Loading…"}</p></main>;
@@ -270,7 +356,6 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
 
   const lowStock = products.filter((item) => item.is_active && (item.variants[0]?.stock_quantity ?? 0) > 0 && (item.variants[0]?.stock_quantity ?? 0) <= 5).length;
   const outOfStock = products.filter((item) => (item.variants[0]?.stock_quantity ?? 0) === 0).length;
-
   const filters: { key: StockFilter; ar: string; en: string }[] = [
     { key: "all", ar: "الكل", en: "All" },
     { key: "available", ar: "متوفر", en: "Available" },
@@ -282,8 +367,14 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
   return <main className="content-page shell commerce-page">
     <p className="eyebrow">XVOND VAULT ADMIN</p>
     <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
-      <div><h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1><p><Link href={`/${locale}/admin`}>← {ar ? "لوحة التحكم" : "Control center"}</Link></p></div>
-      <button className="primary-button" onClick={() => setShowAdd((value) => !value)}>{showAdd ? (ar ? "إغلاق" : "Close") : (ar ? "+ إضافة قطعة" : "+ Add product")}</button>
+      <div>
+        <h1>{ar ? "المنتجات والمخزون" : "Products & inventory"}</h1>
+        <p>{ar ? "إدارة المنتجات من داخل اللوحة بدون الحاجة لاستخدام زر رجوع المتصفح." : "Manage products inside the admin panel without relying on the browser back button."}</p>
+      </div>
+      <div style={{ display: "flex", gap: ".65rem", flexWrap: "wrap" }}>
+        <Link className="secondary-button" href={`/${locale}/admin`}>{ar ? "← لوحة التحكم" : "← Control center"}</Link>
+        <button className="primary-button" type="button" onClick={() => setShowAdd((value) => !value)}>{showAdd ? (ar ? "إغلاق الإضافة" : "Close add form") : (ar ? "+ إضافة قطعة" : "+ Add product")}</button>
+      </div>
     </div>
 
     {message && <p className="admin-message">{message}</p>}
@@ -298,16 +389,19 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
     {showAdd && <form className="checkout-form" onSubmit={(event) => void createProduct(event)} style={{ marginBottom: "1.5rem" }}>
       <h2>{ar ? "إضافة قطعة جديدة" : "Add a new product"}</h2>
       <div className="form-grid">
-        <input name="name_ar" placeholder={ar ? "اسم القطعة" : "Product name"} required />
-        <input name="name_en" placeholder={ar ? "الاسم بالإنجليزية (اختياري)" : "English name (optional)"} />
-        <input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر OMR" : "Price OMR"} required />
-        <input name="stock_quantity" type="number" min="0" placeholder={ar ? "الكمية المتوفرة" : "Stock quantity"} required />
-        <input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق (اختياري)" : "Previous price (optional)"} />
-        <ProductImageField ar={ar} disabled={busyId === "new"} />
+        <input name="name_ar" minLength={2} placeholder={ar ? "اسم القطعة" : "Product name"} required />
+        <input name="name_en" minLength={2} placeholder={ar ? "الاسم بالإنجليزية (اختياري)" : "English name (optional)"} />
+        <input name="price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر الحالي OMR" : "Current price OMR"} required />
+        <input name="stock_quantity" type="number" step="1" min="0" placeholder={ar ? "الكمية المتوفرة" : "Stock quantity"} required />
+        <input name="compare_at_price" type="number" step="0.001" min="0.001" placeholder={ar ? "السعر السابق - لازم أعلى من الحالي (اختياري)" : "Previous price - must be higher (optional)"} />
+        <ProductImageField key={imageFieldKey} ar={ar} disabled={busyId === "new"} />
         <textarea name="description_ar" placeholder={ar ? "وصف القطعة (اختياري)" : "Description (optional)"} />
         <textarea name="description_en" placeholder={ar ? "الوصف بالإنجليزية (اختياري)" : "English description (optional)"} />
       </div>
-      <button className="primary-button" disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإضافة…" : "Adding…") : (ar ? "إضافة للمتجر" : "Add to store")}</button>
+      <div style={{ display: "flex", gap: ".65rem", flexWrap: "wrap" }}>
+        <button className="primary-button" disabled={busyId === "new"}>{busyId === "new" ? (ar ? "جارٍ الإضافة…" : "Adding…") : (ar ? "إضافة للمتجر" : "Add to store")}</button>
+        <button className="secondary-button" type="button" disabled={busyId === "new"} onClick={() => { setShowAdd(false); setMessage(""); }}>{ar ? "إلغاء" : "Cancel"}</button>
+      </div>
     </form>}
 
     <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
@@ -324,7 +418,11 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
         return <article key={product.id} style={{ alignItems: "stretch", gap: "1rem", opacity: busyId === product.id ? .65 : 1 }}>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center", minWidth: 0 }}>
             <div aria-label={ar ? product.name_ar : product.name_en} style={{ width: 82, height: 82, borderRadius: 14, flex: "0 0 auto", background: product.primary_image_url ? `center / cover no-repeat url(${product.primary_image_url})` : "var(--surface-2, #eee)" }} />
-            <div style={{ minWidth: 0 }}><strong>{ar ? product.name_ar : product.name_en}</strong><small style={{ display: "block" }}>{variant ? `${variant.price} OMR` : "—"}</small><small style={{ display: "block" }}>{product.is_active ? (ar ? "ظاهر للبيع" : "Visible") : (ar ? "مخفي" : "Hidden")}</small></div>
+            <div style={{ minWidth: 0 }}>
+              <strong>{ar ? product.name_ar : product.name_en}</strong>
+              <small style={{ display: "block" }}>{variant ? `${variant.price} OMR` : "—"}</small>
+              <small style={{ display: "block" }}>{product.is_active ? (ar ? "ظاهر للبيع" : "Visible") : (ar ? "مخفي" : "Hidden")}</small>
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
             <strong>{ar ? `المخزون: ${stock}` : `Stock: ${stock}`}</strong>
@@ -333,14 +431,15 @@ export function AdminCatalogPromotions({ locale }: { locale: Locale }) {
             <button className="table-button" type="button" disabled={!variant || busyId === product.id || stock === 0} onClick={() => void setStock(product, 0)}>{ar ? "نفد المخزون" : "Out of stock"}</button>
             <button className="secondary-button" type="button" disabled={busyId === product.id} onClick={() => void toggleVisibility(product)}>{product.is_active ? (ar ? "إخفاء" : "Hide") : (ar ? "إظهار" : "Show")}</button>
           </div>
-          <details style={{ width: "100%" }}><summary style={{ cursor: "pointer", fontWeight: 700 }}>{ar ? "تعديل التفاصيل" : "Edit details"}</summary>
+          <details style={{ width: "100%" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>{ar ? "تعديل التفاصيل" : "Edit details"}</summary>
             {variant && <form action={async (form) => saveProduct(product, form)} className="checkout-form" style={{ marginTop: "1rem" }}>
               <div className="form-grid">
-                <input name="name_ar" defaultValue={product.name_ar} required />
-                <input name="name_en" defaultValue={product.name_en} />
+                <input name="name_ar" minLength={2} defaultValue={product.name_ar} required />
+                <input name="name_en" minLength={2} defaultValue={product.name_en} />
                 <input name="price" type="number" step="0.001" min="0.001" defaultValue={variant.price} required />
-                <input name="stock_quantity" type="number" min="0" defaultValue={stock} required />
-                <input name="compare_at_price" type="number" step="0.001" min="0.001" defaultValue={variant.compare_at_price || ""} placeholder={ar ? "السعر السابق" : "Previous price"} />
+                <input name="stock_quantity" type="number" step="1" min="0" defaultValue={stock} required />
+                <input name="compare_at_price" type="number" step="0.001" min="0.001" defaultValue={variant.compare_at_price || ""} placeholder={ar ? "السعر السابق - أعلى من الحالي" : "Previous price - higher than current"} />
                 <ProductImageField ar={ar} defaultValue={product.primary_image_url || ""} disabled={busyId === product.id} />
                 <textarea name="description_ar" defaultValue={product.description_ar || ""} placeholder={ar ? "الوصف" : "Description"} />
                 <textarea name="description_en" defaultValue={product.description_en || ""} placeholder={ar ? "الوصف بالإنجليزية" : "English description"} />
