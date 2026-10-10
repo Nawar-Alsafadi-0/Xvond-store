@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 
-// NAWAR
 export function StoreFooter({ locale }: { locale: Locale }) {
   const pathname = usePathname();
   const ar = locale === "ar";
@@ -19,16 +18,15 @@ export function StoreFooter({ locale }: { locale: Locale }) {
     <footer className="footer">
       <div className="footer-brand">
         <StoreLogo size={120} />
-        <div><strong>{storeName}</strong><p>{ar ? "مختارات مميزة. حضور مختلف." : "Curated pieces. Distinct presence."}</p></div>
+        <div><strong>{storeName}</strong><p>{ar ? "مختارات منتقاة بعناية." : "Curated with intention."}</p></div>
       </div>
       <div className="footer-links">
         <Link href={shopHref}>{ar ? "المتجر" : "Store"}</Link>
         <Link href={`/${locale}/privacy`}>{ar ? "سياسة الخصوصية" : "Privacy"}</Link>
-        <Link href={`/${locale}/terms`}>{ar ? "شروط الاستخدام" : "Terms"}</Link>
+        <Link href={`/${locale}/terms`}>{ar ? "الشروط" : "Terms"}</Link>
         <Link href={`/${locale}/returns`}>{ar ? "الاسترجاع والتبديل" : "Returns & Exchanges"}</Link>
       </div>
       <p className="copyright">© {new Date().getFullYear()} XVOND VAULT</p>
-      <p className="footer-credit" dir="ltr">Powerd by nawar</p>
     </footer>
   );
 }
