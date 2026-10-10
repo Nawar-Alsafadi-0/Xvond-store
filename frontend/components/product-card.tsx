@@ -7,6 +7,7 @@ import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 import type { Locale } from "@/lib/i18n";
 import type { Product } from "@/lib/catalog";
 import { formatPrice } from "@/lib/catalog";
+import { isLocalImageSource, normalizeProductImageSource } from "@/lib/product-image";
 import { useCommerce } from "./commerce-provider";
 
 export function ProductCard({ product, locale }: { product: Product; locale: Locale }) {
@@ -17,11 +18,19 @@ export function ProductCard({ product, locale }: { product: Product; locale: Loc
     : 0;
   const ar = locale === "ar";
   const productHref = `/${locale}/product/${product.slug}`;
+  const imageSource = normalizeProductImageSource(product.image);
 
   return (
     <article className="product-card marketplace-product-card">
       <Link href={productHref} className="product-image-wrap marketplace-product-image">
-        <Image src={product.image} alt={product.name[locale]} fill sizes="(max-width: 640px) 48vw, 20vw" className="product-image" />
+        <Image
+          src={imageSource}
+          alt={product.name[locale]}
+          fill
+          sizes="(max-width: 640px) 48vw, (max-width: 1100px) 24vw, 220px"
+          className="product-image"
+          unoptimized={isLocalImageSource(imageSource)}
+        />
         {discount > 0 && <span className="marketplace-discount">-{discount}%</span>}
         {product.stock < 1 && <span className="marketplace-stock-badge">{ar ? "نفد" : "Sold out"}</span>}
       </Link>

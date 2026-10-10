@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ProductPurchase } from "@/components/product-purchase";
 import { formatPrice, getProduct } from "@/lib/catalog";
 import { isLocale } from "@/lib/i18n";
+import { isLocalImageSource, normalizeProductImageSource } from "@/lib/product-image";
 import { absoluteUrl } from "@/lib/urls";
 import styles from "./product-detail.module.css";
 
@@ -30,6 +31,7 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
   const discount = product.previousPrice
     ? Math.round((1 - product.price / product.previousPrice) * 100)
     : 0;
+  const imageSource = normalizeProductImageSource(product.image);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -56,7 +58,14 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
       <section className={styles.layout}>
         <div className={styles.media}>
           <div className={styles.imageWrap}>
-            <Image src={product.image} alt={product.name[locale]} fill priority sizes="(max-width: 860px) 100vw, 55vw" />
+            <Image
+              src={imageSource}
+              alt={product.name[locale]}
+              fill
+              priority
+              sizes="(max-width: 860px) 100vw, 55vw"
+              unoptimized={isLocalImageSource(imageSource)}
+            />
           </div>
         </div>
 

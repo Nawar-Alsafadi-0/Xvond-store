@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./store-tuning.css";
 import { absoluteUrl } from "@/lib/urls";
 
 export const metadata: Metadata = {
