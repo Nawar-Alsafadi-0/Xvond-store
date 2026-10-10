@@ -101,6 +101,9 @@ class Settings(BaseSettings):
             ),
             "SMTP_USERNAME": placeholder(self.smtp_username or ""),
             "SMTP_PASSWORD": placeholder(self.smtp_password or ""),
+            "TWILIO_ACCOUNT_SID": placeholder(self.twilio_account_sid or ""),
+            "TWILIO_AUTH_TOKEN": placeholder(self.twilio_auth_token or ""),
+            "TWILIO_VERIFY_SERVICE_SID": placeholder(self.twilio_verify_service_sid or ""),
         }
         if self.operator_email or self.operator_password:
             if not self.operator_email or not self.operator_password:
