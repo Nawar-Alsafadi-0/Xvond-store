@@ -15,6 +15,8 @@ type CommerceState = {
   clearCart: () => void;
 };
 
+type CartNotice = { key: number; label: string } | null;
+
 const STORAGE_KEY = "xvond-store-commerce-v1";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const CommerceContext = createContext<CommerceState | null>(null);
@@ -35,6 +37,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [cartNotice, setCartNotice] = useState<CartNotice>(null);
 
   useEffect(() => {
     let restoredCart: CartLine[] = [];
@@ -88,6 +91,12 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, wishlist }));
   }, [cart, wishlist, hydrated]);
 
+  useEffect(() => {
+    if (!cartNotice) return;
+    const timer = window.setTimeout(() => setCartNotice(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [cartNotice]);
+
   const addToCart = useCallback((product: Product, quantity = 1) => {
     setCart((current) => {
       const key = cartLineKey(product);
@@ -99,6 +108,8 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
           : line)
         : [...current, { product, quantity: Math.min(Math.max(1, quantity), maxQuantity) }];
     });
+    const ar = typeof window !== "undefined" && window.location.pathname.startsWith("/ar");
+    setCartNotice({ key: Date.now(), label: ar ? "تمت إضافة القطعة إلى السلة" : "Item added to your cart" });
   }, []);
 
   const removeFromCart = useCallback(
@@ -130,7 +141,13 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [cart, wishlist, cartCount, addToCart, removeFromCart, updateQuantity, toggleWishlist, clearCart],
   );
 
-  return <CommerceContext.Provider value={value}>{children}</CommerceContext.Provider>;
+  return <CommerceContext.Provider value={value}>
+    {children}
+    {cartNotice && <div key={cartNotice.key} className="cart-added-toast" role="status" aria-live="polite">
+      <span className="cart-added-check" aria-hidden="true">✓</span>
+      <strong>{cartNotice.label}</strong>
+    </div>}
+  </CommerceContext.Provider>;
 }
 
 export function useCommerce() {
