@@ -12,8 +12,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title: { absolute: "XVOND VAULT" },
     description: locale === "ar"
-      ? "اكتشف المختارات المتوفرة حالياً في XVOND VAULT."
-      : "Discover the pieces currently available at XVOND VAULT.",
+      ? "مختارات منتقاة بعناية من XVOND VAULT."
+      : "A considered selection from XVOND VAULT.",
     alternates: {
       canonical: absoluteUrl(`/${locale}`),
       languages: { "ar-OM": absoluteUrl("/ar"), "en-OM": absoluteUrl("/en") },
@@ -32,7 +32,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <header className={styles.intro} dir={ar ? "rtl" : "ltr"}>
         <p>XVOND VAULT</p>
         <h1>{ar ? "المختارات" : "The Selection"}</h1>
-        <span>{ar ? "قطع مختارة ومتجددة بكميات محدودة. إذا لفتتك قطعة، لا تفترض أنها ستبقى." : "A rotating selection of distinctive pieces in limited quantities. If something catches your eye, do not assume it will stay."}</span>
+        <span>{ar ? "مختارات منتقاة بعناية، بهوية واضحة وتفاصيل تستحق الاقتناء." : "A considered edit of distinctive pieces, selected for detail and character."}</span>
       </header>
 
       <section className={styles.gallery} aria-label={ar ? "المنتجات المتوفرة" : "Available products"}>
@@ -45,7 +45,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             ))}
           </div>
         ) : (
-          <p className={styles.emptyState}>{ar ? "لا توجد قطع معروضة حالياً." : "No pieces are on display right now."}</p>
+          <p className={styles.emptyState}>{ar ? "لا توجد قطع متوفرة حالياً." : "No pieces are available right now."}</p>
         )}
       </section>
     </main>
