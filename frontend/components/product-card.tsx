@@ -7,38 +7,8 @@ import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 import type { Locale } from "@/lib/i18n";
 import type { Product } from "@/lib/catalog";
 import { formatPrice } from "@/lib/catalog";
+import { isLocalImageSource, normalizeProductImageSource } from "@/lib/product-image";
 import { useCommerce } from "./commerce-provider";
-
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
-function normalizeProductImageSource(source: string): string {
-  try {
-    const imageUrl = new URL(source);
-    const configuredApiUrl = new URL(apiUrl);
-    const mediaMarker = "/media/products/";
-    const mediaIndex = imageUrl.pathname.indexOf(mediaMarker);
-    const localImageHost = imageUrl.hostname === "localhost" || imageUrl.hostname === "127.0.0.1";
-
-    if (mediaIndex >= 0 && localImageHost) {
-      const apiPath = configuredApiUrl.pathname.replace(/\/$/, "");
-      const mediaPath = imageUrl.pathname.slice(mediaIndex);
-      return `${configuredApiUrl.origin}${apiPath}${mediaPath}${imageUrl.search}`;
-    }
-  } catch {
-    // Relative placeholders and already-valid image URLs can be used as-is.
-  }
-
-  return source;
-}
-
-function isLocalImageSource(source: string): boolean {
-  try {
-    const imageUrl = new URL(source);
-    return imageUrl.hostname === "localhost" || imageUrl.hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 export function ProductCard({ product, locale }: { product: Product; locale: Locale }) {
   const { addToCart, toggleWishlist, wishlist } = useCommerce();
