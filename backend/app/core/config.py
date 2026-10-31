@@ -1,17 +1,21 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Xvond Store API"
+    app_name: str = "CommerceKit Store API"
+    store_name: str = "My Store"
+    order_number_prefix: str = Field(default="CK", pattern=r"^[A-Z0-9]{2,8}$")
+    shipping_pricing_mode: Literal["free", "configured"] = "free"
     app_env: str = "development"
     api_prefix: str = "/api/v1"
     database_url: str = "postgresql+asyncpg://xvond_store:xvond_store@localhost:5432/xvond_store"
     database_residency_country: str = "OM"
     admin_api_token: str = Field(default="development-only-token-change-me", min_length=24)
-    admin_email: str = "admin@xvond.com"
+    admin_email: str = "admin@example.com"
     admin_password: str = Field(default="development-admin-password", min_length=8)
     operator_email: str | None = None
     operator_password: str | None = Field(default=None, min_length=8)
@@ -21,7 +25,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     public_api_url: str | None = None
     media_root: str = "./media"
-    email_from: str = "Xvond Store <no-reply@xvond.com>"
+    email_from: str = "Store Notifications <no-reply@example.com>"
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
