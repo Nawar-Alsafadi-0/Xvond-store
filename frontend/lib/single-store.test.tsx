@@ -27,7 +27,7 @@ describe("single XVOND VAULT storefront", () => {
   it("uses the agreed department names even with the old live catalog labels", async () => {
     mockCatalog();
     const categories = await getCategories();
-    expect(categories.map((c) => c.label.ar)).toEqual(["تقنية وإكسسوارات", "للنساء", "للأطفال", "للسيارة", "هدايا مميزة", "Xvond Box"]);
+    expect(categories.map((c) => c.label.ar)).toEqual(["تقنية وإكسسوارات", "للنساء", "للأطفال", "للسيارة", "هدايا مميزة", "صناديق هدايا"]);
     expect(categories.find((c) => c.slug === "women")).toMatchObject({ id: "live-women", label: { en: "For Women" } });
   });
 
