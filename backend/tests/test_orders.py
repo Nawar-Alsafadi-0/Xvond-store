@@ -7,7 +7,7 @@ from app.schemas.orders import CheckoutCreate
 
 def test_order_number_has_public_prefix() -> None:
     number = new_order_number()
-    assert number.startswith("XV-")
+    assert number.startswith("CK-")
     assert len(number.split("-")) == 3
 
 
