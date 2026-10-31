@@ -1,7 +1,4 @@
-import Image from "next/image";
 import type { CSSProperties } from "react";
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 type StoreLogoProps = {
   size?: number;
@@ -10,17 +7,26 @@ type StoreLogoProps = {
   style?: CSSProperties;
 };
 
-export function StoreLogo({ size = 96, priority = false, className = "", style }: StoreLogoProps) {
+/** Text-only commercial logo: buyer's configured name, no proprietary Xvond image. */
+export function StoreLogo({ size = 96, className = "", style }: StoreLogoProps) {
+  const brandName = process.env.NEXT_PUBLIC_STORE_NAME || "My Store";
   return (
-    <Image
-      src={`${basePath}/assets/logo.png`}
-      alt={process.env.NEXT_PUBLIC_STORE_NAME || "Store logo"}
-      width={size}
-      height={size}
-      sizes={`${size}px`}
-      priority={priority}
+    <span
+      aria-label={brandName}
       className={`store-logo ${className}`.trim()}
-      style={{ objectFit: "contain", ...style }}
-    />
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+        fontSize: Math.max(14, Math.min(size / 4, 34)),
+        lineHeight: 1.2,
+        textAlign: "center",
+        ...style,
+      }}
+    >
+      {brandName}
+    </span>
   );
 }
