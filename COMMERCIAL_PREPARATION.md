@@ -35,3 +35,6 @@ cd ../frontend && npm ci && npm run build
 ```
 
 WARNING: Passing a simple static check **does not** imply the product is secure, legally licensed, production-ready or approved for sale.
+
+## Security maintenance
+On 2026-10-31, non-breaking npm dependency updates were tested and committed by the commercial remediation workflow. The follow-up CI workflow is the source of truth for verification of the updated lockfile. This does not replace a full security, privacy and license audit.
