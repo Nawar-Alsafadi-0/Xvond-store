@@ -56,3 +56,18 @@ jobs:
       - run: alembic upgrade head
       - run: ruff check .
       - run: pytest
+
+  commercial-candidate:
+    if: github.ref == 'refs/heads/commercial/commercekit-prep'
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build a staging archive, not a marketplace-ready release
+        run: python3 scripts/build_commercial_zip.py
+      - name: Publish staged archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: CommerceKit-Oman-Release-Candidate-NOT-FOR-SALE
+          path: dist/CommerceKit_Oman_Release_Candidate.zip
+          retention-days: 7
