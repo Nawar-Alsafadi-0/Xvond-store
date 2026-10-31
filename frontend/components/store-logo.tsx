@@ -14,7 +14,7 @@ export function StoreLogo({ size = 96, priority = false, className = "", style }
   return (
     <Image
       src={`${basePath}/assets/logo.png`}
-      alt="XVOND VAULT"
+      alt={process.env.NEXT_PUBLIC_STORE_NAME || "Store logo"}
       width={size}
       height={size}
       sizes={`${size}px`}
