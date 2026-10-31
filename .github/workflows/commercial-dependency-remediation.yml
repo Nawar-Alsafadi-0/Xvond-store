@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - name: Apply non-breaking security updates within existing semver constraints
-        run: npm audit fix
+        run: npm audit fix || true  # audit fix exits 1 if unresolved dev-only advisories remain
       - name: Confirm production dependency audit
         run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
