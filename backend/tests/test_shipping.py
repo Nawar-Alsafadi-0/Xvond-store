@@ -32,3 +32,16 @@ def test_shipping_days_must_be_ordered() -> None:
             estimated_days_min=4,
             estimated_days_max=2,
         )
+
+def test_configured_shipping_rate_and_free_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("SHIPPING_PRICING_MODE", "configured")
+    get_settings.cache_clear()
+    try:
+        assert calculate_shipping_amount(Decimal("2.000"), Decimal("20.000"), Decimal("19.999")) == Decimal("2.000")
+        assert calculate_shipping_amount(Decimal("2.000"), Decimal("20.000"), Decimal("20.000")) == Decimal("0.000")
+        assert calculate_shipping_amount(Decimal("1.500"), None, Decimal("100.000")) == Decimal("1.500")
+    finally:
+        monkeypatch.delenv("SHIPPING_PRICING_MODE", raising=False)
+        get_settings.cache_clear()
