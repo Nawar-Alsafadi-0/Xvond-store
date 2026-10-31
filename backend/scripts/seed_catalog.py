@@ -9,7 +9,7 @@ CATEGORIES = (
     ("women", "نساء", "Women"),
     ("kids", "أطفال", "Kids"),
     ("electronics", "إلكترونيات", "Electronics"),
-    ("xvond-box", "Xvond Box", "Xvond Box"),
+    ("xvond-box", "صناديق هدايا", "Gift Boxes"),
     ("luxury-gifts", "هدايا", "Gifts"),
     ("automotive", "السيارات ومستلزماتها", "Automotive"),
 )
