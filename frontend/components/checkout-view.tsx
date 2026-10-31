@@ -309,7 +309,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   if (!profile) {
     const checkoutPath = `/${locale}/checkout`;
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND VAULT</p>
+      <p className="eyebrow">COMMERCEKIT STORE</p>
       <h1>{ar ? "تسجيل الدخول" : "Sign in"}</h1>
       <div className="empty-card">
         <p>{ar ? "سجّل الدخول لإكمال الشراء." : "Sign in to complete your purchase."}</p>
@@ -322,7 +322,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
     const checkoutPath = `/${locale}/checkout`;
     return <main className="content-page shell commerce-page">
       <section className="verification-gate">
-        <p className="eyebrow">XVOND VAULT</p>
+        <p className="eyebrow">COMMERCEKIT STORE</p>
         <h1>{ar ? "تفعيل الحساب" : "Verify your account"}</h1>
         <p>{ar ? "أكمل التحقق للمتابعة إلى الدفع." : "Complete verification to continue to checkout."}</p>
         <Link className="primary-button" href={`/${locale}/account?next=${encodeURIComponent(checkoutPath)}`}>{ar ? "متابعة" : "Continue"}</Link>
@@ -332,7 +332,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
 
   if (placedOrder) {
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND VAULT</p>
+      <p className="eyebrow">COMMERCEKIT STORE</p>
       <h1>{ar ? "تم استلام طلبك" : "Order received"}</h1>
       <div className="empty-card">
         <strong style={{ fontSize: "1.2rem" }}>{placedOrder.order_number}</strong>
@@ -349,7 +349,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
 
   if (!cart.length) {
     return <main className="content-page shell commerce-page">
-      <p className="eyebrow">XVOND VAULT</p>
+      <p className="eyebrow">COMMERCEKIT STORE</p>
       <h1>{ar ? "سلة التسوق" : "Shopping bag"}</h1>
       <div className="empty-card"><p>{ar ? "سلة التسوق فارغة." : "Your bag is empty."}</p><Link className="primary-button" href={`/${locale}`}>{ar ? "متابعة التسوق" : "Continue shopping"}</Link></div>
     </main>;
@@ -359,7 +359,7 @@ export function CheckoutView({ locale }: { locale: Locale }) {
   const shipping = quote ? Number(quote.shipping_total) : 0;
 
   return <main className="content-page shell commerce-page">
-    <p className="eyebrow">XVOND VAULT</p>
+    <p className="eyebrow">COMMERCEKIT STORE</p>
     <h1>{ar ? "إتمام الشراء" : "Checkout"}</h1>
     <div className="checkout-layout">
       <form className="checkout-form" action={submit}>
