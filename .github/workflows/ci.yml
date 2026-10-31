@@ -59,7 +59,7 @@ jobs:
 
   commercial-candidate:
     if: github.ref == 'refs/heads/commercial/commercekit-prep'
-    needs: [frontend, backend]
+    needs: [frontend, backend, security-audit]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,3 +71,20 @@ jobs:
           name: CommerceKit-Oman-Release-Candidate-NOT-FOR-SALE
           path: dist/CommerceKit_Oman_Release_Candidate.zip
           retention-days: 7
+
+  security-audit:
+    if: github.ref == 'refs/heads/commercial/commercekit-prep'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Reject known high or critical production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
