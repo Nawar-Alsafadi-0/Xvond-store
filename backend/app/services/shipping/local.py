@@ -51,5 +51,16 @@ def is_supported_oman_governorate(value: str) -> bool:
 def calculate_shipping_amount(
     rate_amount: Decimal, free_over: Decimal | None, merchandise_total: Decimal
 ) -> Decimal:
-    """Delivery is free for every currently enabled delivery area."""
-    return Decimal("0.000")
+    """Use configured delivery fees, preserving legacy free shipping by default."""
+    from app.core.config import get_settings
+
+    mode = get_settings().shipping_pricing_mode
+    if mode == "free":
+        return Decimal("0.000")
+    if mode != "configured":
+        raise ValueError("Unsupported shipping pricing mode")
+    if rate_amount < 0:
+        raise ValueError("Shipping rate cannot be negative")
+    if free_over is not None and merchandise_total >= free_over:
+        return Decimal("0.000")
+    return rate_amount.quantize(Decimal("0.001"))
