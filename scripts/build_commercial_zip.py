@@ -20,6 +20,7 @@ DENY_PATHS = {
     "frontend/public/xvond-store-logo.png",
     "README.md",  # describes the original owner and is not buyer documentation
     "BUSINESS.md",
+    "scripts/build_commercial_zip.py",  # contains detection strings; not needed by buyers
 }
 ALLOWED_ENV = {".env.example", ".env.production.example"}
 PRIVATE_MARKERS = (
