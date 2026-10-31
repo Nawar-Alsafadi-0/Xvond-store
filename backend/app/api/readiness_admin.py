@@ -54,7 +54,7 @@ async def launch_readiness(session: Session) -> dict[str, object]:
     residency_ready = settings.database_residency_country.strip().upper() == "OM"
     shipping_ready = (
         active_shipping_keys == OMAN_GOVERNORATE_KEYS
-        and (paid_shipping_rates or 0) == 0
+        and (settings.shipping_pricing_mode == "configured" or (paid_shipping_rates or 0) == 0)
     )
     production_ready = settings.app_env == "production" and settings.frontend_url.startswith(
         "https://"
@@ -79,7 +79,8 @@ async def launch_readiness(session: Session) -> dict[str, object]:
             "ready": shipping_ready,
             "detail": (
                 f"{len(active_shipping_keys)}/{EXPECTED_OMAN_GOVERNORATES} required Oman governorates active · "
-                f"{paid_shipping_rates or 0} with non-zero delivery fee"
+                f"{paid_shipping_rates or 0} with non-zero delivery fee · "
+                f"policy: {settings.shipping_pricing_mode}"
             ),
         },
         {
