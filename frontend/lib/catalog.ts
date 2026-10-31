@@ -72,8 +72,8 @@ export const STORE_CATEGORIES: Category[] = [
     "id": "department-xvond-box",
     "slug": "xvond-box",
     "label": {
-      "ar": "Xvond Box",
-      "en": "Xvond Box"
+      "ar": "صناديق هدايا",
+      "en": "Gift Boxes"
     },
     "description": {
       "ar": "بوكسات تجمع منتجات متناسقة حول فكرة أو استخدام محدد.",
