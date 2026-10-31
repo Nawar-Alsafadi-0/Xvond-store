@@ -8,6 +8,14 @@ This branch is a **working copy for commercial adaptation** of Xvond-store. The 
 - Replaced two Xvond Box translations with generic Gift Box naming.
 - Made logo alternative text configurable with `NEXT_PUBLIC_STORE_NAME` (the image itself is NOT yet generic).
 
+## Additional work completed
+- `STORE_NAME` and `ORDER_NUMBER_PREFIX` are configurable in the backend, with an order number prefix validation rule.
+- `SHIPPING_PRICING_MODE=free|configured` selects between legacy free delivery and the shipping rate configured for an existing region. `configured` honors `free_over` thresholds.
+- Launch-readiness shipping checks now honor the configured pricing mode; added shipping unit tests.
+- Production example URLs now use example.com (no deployment to that domain is implied).
+
+**IMPORTANT:** This does not enable international sales or currency choice. Checkout remains Oman-only and stores OMR. Existing examples, images and other brand strings remain to be generalized. Tests have **not been run** on the new branch because CI currently only runs on `main` or pull requests. Do not describe this branch as commercially ready.
+
 ## Release blockers
 - Product is restricted to Oman, OMR currency, Oman shipping regions, and Oman database-residency checks. These restrictions exist in backend, frontend, seeds, migrations, and tests. Do NOT remove a single guard in isolation: build a coherent configurable market/currency/shipping implementation, then test the complete checkout end-to-end.
 - Production currently requires SMTP and Twilio phone verification. Buyer-installation and feature toggles need design and testing, not just removal of validation.
