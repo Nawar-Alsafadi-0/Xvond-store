@@ -42,7 +42,7 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 
 def new_order_number() -> str:
     stamp = datetime.now(UTC).strftime("%y%m%d")
-    return f"XV-{stamp}-{secrets.token_hex(3).upper()}"
+    return f"{get_settings().order_number_prefix}-{stamp}-{secrets.token_hex(3).upper()}"
 
 
 async def load_products(
